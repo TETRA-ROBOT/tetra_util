@@ -67,6 +67,7 @@ add_executable(tetra_h_service src/tetra_h_service.cpp )
 add_executable(tetra_edu_service src/tetra_edu_service.cpp )
 add_executable(tetra_mh_service src/tetra_mh_service.cpp )
 add_executable(tetra_s_service src/tetra_s_service.cpp )
+add_executable(tetra_sm_service src/tetra_sm_service.cpp )
 
 set(dependencies
   rclcpp
@@ -95,6 +96,7 @@ ament_target_dependencies(tetra_h_service ${dependencies})
 ament_target_dependencies(tetra_edu_service ${dependencies})
 ament_target_dependencies(tetra_mh_service ${dependencies})
 ament_target_dependencies(tetra_s_service ${dependencies})
+ament_target_dependencies(tetra_sm_service ${dependencies})
 
 target_link_libraries(tetra_m_service
                       ${rclcpp_LIBRARIES}
@@ -196,8 +198,28 @@ target_link_libraries(tetra_s_service
                       ${apriltag_msgs_LIBRARIES}
                       )
 
+target_link_libraries(tetra_sm_service
+                      ${rclcpp_LIBRARIES}
+                      ${rmw_implementation_LIBRARIES}
+                      ${std_msgs_LIBRARIES}
+                      ${std_srvs_LIBRARIES}
+                      ${sensor_msgs_LIBRARIES}
+                      ${tf2_LIBRARIES}
+                      ${tf2_ros_LIBRARIES}
+                      ${nav2_msgs_LIBRARIES}
+                      ${rclcpp_action_LIBRARIES}
+                      ${nav2_costmap_2d_LIBRARIES}
+                      ${nav_msgs_LIBRARIES}
+                      ${geometry_msgs_LIBRARIES}
+                      ${robot_localization_LIBRARIES}
+                      ${pcl_ros_LIBRARIES}
+                      ${PCL_LIBRARIES}
+                      ${apriltag_ros_LIBRARIES}
+                      ${apriltag_msgs_LIBRARIES}
+                      )
+
 install(TARGETS 
-	tetra_m_service tetra_h_service tetra_edu_service tetra_mh_service tetra_s_service
+	tetra_m_service tetra_h_service tetra_edu_service tetra_mh_service tetra_s_service tetra_sm_service
 	DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY
