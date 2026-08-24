@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <csignal>
+#include <algorithm>
 
 using namespace std::placeholders;
 
@@ -126,6 +127,7 @@ void TETRA_SERVICE::initializeRosEntities(
     }
     movebase_publisher = this->create_publisher<std_msgs::msg::Int32>("movebase", 10);
     footprint_publisher = this->create_publisher<geometry_msgs::msg::Pose>("footprint", 10);
+    docking_progress_publisher = this->create_publisher<std_msgs::msg::Int32>("docking_progress", 10);
 
     // Subscribers
     apriltag_subscriber = this->create_subscription<apriltag_msgs::msg::AprilTagDetectionArray>(
@@ -243,14 +245,14 @@ void TETRA_SERVICE::initializeRosEntities(
 void TETRA_SERVICE::joyCallback(const sensor_msgs::msg::Joy::SharedPtr joy)
 {
     if (joy->buttons.size() > 7) {
-        if (joy->buttons[6]) { // LT button
+        if (joy->buttons[6]) { // LT button: Auto Docking
             auto request = std::make_shared<interfaces::srv::DockingControl::Request>();
             auto response = std::make_shared<interfaces::srv::DockingControl::Response>();
             request->id = 0;
             request->mode = 1;
             Docking_Command(request, response);
         }
-        if (joy->buttons[7]) { // RT button
+        if (joy->buttons[7]) { // RT button: Docking Stop
             auto request = std::make_shared<interfaces::srv::DockingStop::Request>();
             auto response = std::make_shared<interfaces::srv::DockingStop::Response>();
             Docking_Stop_Command(request, response);
@@ -295,6 +297,7 @@ void TETRA_SERVICE::ApriltagCallback(const apriltag_msgs::msg::AprilTagDetection
                 _pAR_tag_pose.m_transform_pose_x = dZ;
                 _pAR_tag_pose.m_transform_pose_y = -dX;
                 _pAR_tag_pose.m_dPositioning_Angle = -_pAR_tag_pose.m_dApril_tag_pitch;
+                _pAR_tag_pose.m_target_yaw = _pAR_tag_pose.m_dApril_tag_pitch;
                 break;
             }
         }
@@ -345,13 +348,20 @@ void TETRA_SERVICE::LaserScanMergeCallback(const sensor_msgs::msg::LaserScan::Sh
 {
     int num_readings = scan->ranges.size();
     float fDistance_front = 0.55f;
+    float fDistance_rear = 0.35f;
     _pFlag_Value.m_bFlag_MergeScan_Front = false;
+    _pFlag_Value.m_bFlag_MergeScan_Rear = false;
+    _pFlag_Value.m_bFlag_MergeScan_Left = false;
+    _pFlag_Value.m_bFlag_MergeScan_Right = false;
 
     for (int i = 0; i < num_readings; i++) {
         float r = scan->ranges[i];
         if (std::isnan(r) || std::isinf(r)) continue;
         if (i >= (num_readings / 2 - 45) && i <= (num_readings / 2 + 45)) {
             if (r < fDistance_front && r > 0.05f) _pFlag_Value.m_bFlag_MergeScan_Front = true;
+        }
+        if (i < 45 || i > num_readings - 45) {
+            if (r < fDistance_rear && r > 0.05f) _pFlag_Value.m_bFlag_MergeScan_Rear = true;
         }
     }
 }
@@ -361,7 +371,7 @@ void TETRA_SERVICE::BumperCallback(const std_msgs::msg::Int32::SharedPtr msg)
     _pRobot.m_iCallback_Bumper = msg->data;
     if (_pRobot.m_iCallback_Bumper != 0) {
         _pFlag_Value.m_bumperhit_flag = true;
-        LedControl_Call(2, 255); // Red LED alert
+        LedControl_Call(2, 255); // Red alert LED
     }
 }
 
@@ -376,9 +386,6 @@ void TETRA_SERVICE::EMGCallback(const std_msgs::msg::Int32::SharedPtr msg)
 void TETRA_SERVICE::BatteryCallback(const std_msgs::msg::Int32::SharedPtr msg)
 {
     _pRobot.m_iCallback_Battery = msg->data;
-    if (_pRobot.m_iCallback_Battery <= LOW_BATTERY) {
-        // Low battery logic
-    }
 }
 
 void TETRA_SERVICE::DockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -394,6 +401,7 @@ void TETRA_SERVICE::ConveyorSensorCallback(const std_msgs::msg::Int32::SharedPtr
 void TETRA_SERVICE::ConveyorMovementCallback(const std_msgs::msg::Int32::SharedPtr msg)
 {
     _pRobot.m_iConveyor_movement = msg->data;
+    _pRobot.LIFT_MOVEMENT = msg->data;
 }
 
 void TETRA_SERVICE::AMCL_PaticleCloud_Callback(const nav2_msgs::msg::ParticleCloud::SharedPtr msg)
@@ -419,81 +427,527 @@ void TETRA_SERVICE::map_Callback(const nav_msgs::msg::OccupancyGrid::SharedPtr m
     m_bActive_map = true;
 }
 
+// ──────────────── Docking & Lift Tracking Methods ────────────────────
+
+double TETRA_SERVICE::rotation_movement()
+{
+    if (m_iRotation_Mode == 1) return 0.12;  // Left
+    if (m_iRotation_Mode == 2) return -0.12; // Right
+    return 0.10;
+}
+
+void TETRA_SERVICE::publish_docking_progress(int progress)
+{
+    std_msgs::msg::Int32 p_msg;
+    p_msg.data = progress;
+    docking_progress_publisher->publish(p_msg);
+}
+
+void TETRA_SERVICE::docking_exit()
+{
+    geometry_msgs::msg::Twist stop_cmd;
+    cmd_vel_publisher->publish(stop_cmd);
+    m_iDocking_CommandMode = DOCK_NONE;
+    m_iNoMarker_cnt = 0;
+    m_iYawAlign_cnt = 0;
+    m_iStepBack_cnt = 0;
+    _pFlag_Value.m_bfalg_DockingExit = false;
+    _pRobot.m_bFalg_DockingExit = false;
+    RCLCPP_INFO(this->get_logger(), "Docking loop exited.");
+}
+
+bool TETRA_SERVICE::charging_station_tracking(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+
+    if (_pAR_tag_pose.m_iApril_tag_id == marker_id) {
+        m_iNoMarker_cnt = 0;
+        double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+        if (dist > 0.55 && dist < 2.5) {
+            cmd.linear.x = std::clamp(dist * 0.2, 0.05, 0.35);
+            cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.25, -0.4, 0.4);
+            cmd_vel_publisher->publish(cmd);
+        } else {
+            cmd.linear.x = 0.0;
+            cmd.angular.z = 0.0;
+            cmd_vel_publisher->publish(cmd);
+            RCLCPP_INFO(this->get_logger(), "[ChargingStation_tracking] Reached 0.55m -> Transition to Yaw Align (Mode 3)");
+            m_iDocking_CommandMode = DOCK_CHARGE_YAW_ALIGN;
+        }
+    } else {
+        m_iNoMarker_cnt++;
+        if (m_iNoMarker_cnt > 300) { // Timeout 3 sec
+            RCLCPP_WARN(this->get_logger(), "[ChargingStation_tracking] Marker scan timeout!");
+            m_iDocking_CommandMode = DOCK_CHARGE_FAIL;
+        } else {
+            cmd.angular.z = rotation_movement();
+            cmd_vel_publisher->publish(cmd);
+        }
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::charging_station_yaw_tracking()
+{
+    geometry_msgs::msg::Twist cmd;
+    double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+    double target_yaw = _pAR_tag_pose.m_target_yaw;
+
+    // Angle within +- 1.0 deg (0.0175 rad) -> perfect alignment!
+    if (std::abs(target_yaw) <= 0.0175) {
+        RCLCPP_INFO(this->get_logger(), "[ChargingStation_Yaw_tracking] Yaw aligned (yaw: %.2f°) -> Mode 4", target_yaw * 180.0 / M_PI);
+        m_iDocking_CommandMode = DOCK_CHARGE_TRACKING_2;
+        m_iYawAlign_cnt = 0;
+        m_iStepBack_cnt = 0;
+        return true;
+    }
+
+    // Step 1: Rotate in-place to align heading with marker normal
+    if (m_iYawAlign_cnt < 25) {
+        m_iYawAlign_cnt++;
+        cmd.linear.x = 0.0;
+        cmd.angular.z = std::clamp(-1.0 * target_yaw * 1.2, -0.3, 0.3);
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    // Step 2: Step-back to secure center approach space
+    if (m_iStepBack_cnt < 20) {
+        m_iStepBack_cnt++;
+        if (_pFlag_Value.m_bFlag_MergeScan_Rear) {
+            cmd.linear.x = 0.0;
+        } else {
+            cmd.linear.x = -1.0 * std::clamp(dist * 0.2, 0.05, 0.15);
+        }
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    // Reset counters and loop back to tracking_1 to re-approach from center line
+    m_iYawAlign_cnt = 0;
+    m_iStepBack_cnt = 0;
+    m_iRotation_Mode = (target_yaw > 0) ? 2 : 1;
+    m_iDocking_CommandMode = DOCK_CHARGE_TRACKING_1;
+    RCLCPP_INFO(this->get_logger(), "[ChargingStation_Yaw_tracking] Step-back complete -> Re-approaching in Mode 2");
+    return true;
+}
+
+bool TETRA_SERVICE::charging_station_tracking2(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+
+    if (_pRobot.m_iCallback_Charging_status < 2 && _pRobot.m_iCallback_Bumper == 0) {
+        double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+        cmd.linear.x = std::clamp((dist / 2.0) * 0.08, 0.02, 0.08); // creeping max 0.08 m/s
+        cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.5, -0.2, 0.2);
+
+        if (dist <= 0.22 || _pRobot.m_iCallback_Charging_status == 2) {
+            cmd.linear.x = 0.0;
+            cmd.angular.z = 0.0;
+            cmd_vel_publisher->publish(cmd);
+            m_iDocking_CommandMode = DOCK_CHARGE_APPROACH;
+            RCLCPP_INFO(this->get_logger(), "[ChargingStation_tracking2] Close to station -> Final Approach (Mode 5)");
+        } else {
+            cmd_vel_publisher->publish(cmd);
+        }
+    } else {
+        m_iDocking_CommandMode = DOCK_CHARGE_APPROACH;
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::approach_station_move()
+{
+    geometry_msgs::msg::Twist cmd;
+    if (_pRobot.m_iCallback_Charging_status == 2) {
+        cmd.linear.x = 0.0;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        m_iDocking_CommandMode = DOCK_CHARGE_FINISH;
+        RCLCPP_INFO(this->get_logger(), "[Approach_Station2Move] Charging contact confirmed! -> Mode 6");
+    } else {
+        cmd.linear.x = 0.03; // Gentle creeping push into terminal
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::depart_station_move()
+{
+    geometry_msgs::msg::Twist cmd;
+    m_iDepart_cnt++;
+
+    if (m_iDepart_cnt < 20) { // 2.0 sec @ 10Hz
+        cmd.linear.x = -0.10;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+    } else {
+        cmd.linear.x = 0.0;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        m_iDepart_cnt = 0;
+        m_iDocking_CommandMode = DOCK_NONE;
+        RCLCPP_INFO(this->get_logger(), "Depart station completed.");
+    }
+    return true;
+}
+
+// ──────────────── Lift Station Docking Methods ───────────────────────
+
+bool TETRA_SERVICE::lift_station_tracking(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+    if (_pAR_tag_pose.m_iApril_tag_id == marker_id) {
+        m_iNoMarker_cnt = 0;
+        double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+        if (dist > 1.3 && dist < 3.0) {
+            cmd.linear.x = std::clamp(dist * 0.18, 0.05, 0.30);
+            cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.3, -0.35, 0.35);
+            cmd_vel_publisher->publish(cmd);
+        } else {
+            cmd.linear.x = 0.0;
+            cmd.angular.z = 0.0;
+            cmd_vel_publisher->publish(cmd);
+            m_iDocking_CommandMode = DOCK_LIFT_LOAD_YAW_ALIGN;
+            RCLCPP_INFO(this->get_logger(), "[LiftStation_tracking] Reached 1.3m -> Lift Yaw Align (Mode 13)");
+        }
+    } else {
+        m_iNoMarker_cnt++;
+        if (m_iNoMarker_cnt > 350) {
+            m_iDocking_CommandMode = DOCK_LIFT_LOAD_FAIL;
+        } else {
+            cmd.angular.z = rotation_movement();
+            cmd_vel_publisher->publish(cmd);
+        }
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::lift_station_yaw_tracking()
+{
+    geometry_msgs::msg::Twist cmd;
+    double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+    double target_yaw = _pAR_tag_pose.m_target_yaw;
+
+    if (std::abs(target_yaw) <= 0.0175) {
+        m_iDocking_CommandMode = DOCK_LIFT_LOAD_TRACKING_2;
+        m_iYawAlign_cnt = 0;
+        m_iStepBack_cnt = 0;
+        RCLCPP_INFO(this->get_logger(), "[LiftStation_Yaw_tracking] Lift Yaw aligned -> Mode 14");
+        return true;
+    }
+
+    if (m_iYawAlign_cnt < 25) {
+        m_iYawAlign_cnt++;
+        cmd.linear.x = 0.0;
+        cmd.angular.z = std::clamp(-1.0 * target_yaw * 1.2, -0.25, 0.25);
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    if (m_iStepBack_cnt < 20) {
+        m_iStepBack_cnt++;
+        cmd.linear.x = -1.0 * std::clamp(dist * 0.15, 0.05, 0.12);
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    m_iYawAlign_cnt = 0;
+    m_iStepBack_cnt = 0;
+    m_iDocking_CommandMode = DOCK_LIFT_LOAD_TRACKING_1;
+    return true;
+}
+
+bool TETRA_SERVICE::lift_station_tracking2(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+    double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+    cmd.linear.x = std::clamp((dist / 2.0) * 0.06, 0.02, 0.06);
+    cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.5, -0.15, 0.15);
+
+    if (dist <= 0.30 || _pRobot.m_iCallback_Bumper != 0) {
+        cmd.linear.x = 0.0;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        m_iDocking_CommandMode = DOCK_LIFT_LOAD_EXECUTE;
+        RCLCPP_INFO(this->get_logger(), "[LiftStation_tracking2] Tunnel Entry Complete -> Executing Lift UP (Mode 15)");
+    } else {
+        cmd_vel_publisher->publish(cmd);
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::lift_check()
+{
+    if (_pRobot.m_iConveyor_Sensor_info > 0) {
+        RCLCPP_WARN(this->get_logger(), "Robot already has payload on lift! Cannot load.");
+        m_iDocking_CommandMode = DOCK_NONE;
+        return false;
+    }
+    m_iDocking_CommandMode = DOCK_LIFT_LOAD_TRACKING_2;
+    return true;
+}
+
+bool TETRA_SERVICE::un_lift_station_tracking(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+    if (_pAR_tag_pose.m_iApril_tag_id == marker_id) {
+        m_iNoMarker_cnt = 0;
+        double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+        if (dist > 1.3 && dist < 3.0) {
+            cmd.linear.x = std::clamp(dist * 0.18, 0.05, 0.30);
+            cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.3, -0.35, 0.35);
+            cmd_vel_publisher->publish(cmd);
+        } else {
+            cmd.linear.x = 0.0;
+            cmd.angular.z = 0.0;
+            cmd_vel_publisher->publish(cmd);
+            m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_YAW_ALIGN;
+        }
+    } else {
+        m_iNoMarker_cnt++;
+        if (m_iNoMarker_cnt > 350) {
+            m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_FAIL;
+        } else {
+            cmd.angular.z = rotation_movement();
+            cmd_vel_publisher->publish(cmd);
+        }
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::un_lift_station_yaw_tracking()
+{
+    geometry_msgs::msg::Twist cmd;
+    double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+    double target_yaw = _pAR_tag_pose.m_target_yaw;
+
+    if (std::abs(target_yaw) <= 0.0175) {
+        m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_TRACKING_2;
+        m_iYawAlign_cnt = 0;
+        m_iStepBack_cnt = 0;
+        return true;
+    }
+
+    if (m_iYawAlign_cnt < 25) {
+        m_iYawAlign_cnt++;
+        cmd.linear.x = 0.0;
+        cmd.angular.z = std::clamp(-1.0 * target_yaw * 1.2, -0.25, 0.25);
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    if (m_iStepBack_cnt < 20) {
+        m_iStepBack_cnt++;
+        cmd.linear.x = -1.0 * std::clamp(dist * 0.15, 0.05, 0.12);
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        return true;
+    }
+
+    m_iYawAlign_cnt = 0;
+    m_iStepBack_cnt = 0;
+    m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_TRACKING_1;
+    return true;
+}
+
+bool TETRA_SERVICE::un_lift_station_tracking2(int marker_id)
+{
+    geometry_msgs::msg::Twist cmd;
+    double dist = std::hypot(_pAR_tag_pose.m_transform_pose_x, _pAR_tag_pose.m_transform_pose_y);
+
+    cmd.linear.x = std::clamp((dist / 2.0) * 0.06, 0.02, 0.06);
+    cmd.angular.z = std::clamp(-1.0 * std::atan2(_pAR_tag_pose.m_transform_pose_y, _pAR_tag_pose.m_transform_pose_x) / 1.5, -0.15, 0.15);
+
+    if (dist <= 0.30 || _pRobot.m_iCallback_Bumper != 0) {
+        cmd.linear.x = 0.0;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_EXECUTE;
+        RCLCPP_INFO(this->get_logger(), "[Un_LiftStation_tracking2] Drop-off Entry Complete -> Executing Lift DOWN (Mode 25)");
+    } else {
+        cmd_vel_publisher->publish(cmd);
+    }
+    return true;
+}
+
+bool TETRA_SERVICE::un_lift_check()
+{
+    if (_pRobot.m_iConveyor_Sensor_info == 0) {
+        RCLCPP_WARN(this->get_logger(), "Robot has no payload to unload!");
+        m_iDocking_CommandMode = DOCK_NONE;
+        return false;
+    }
+    m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_TRACKING_2;
+    return true;
+}
+
+bool TETRA_SERVICE::depart_lift_move(int mode)
+{
+    geometry_msgs::msg::Twist cmd;
+    m_iDepart_cnt++;
+
+    double max_cnt = (mode == 1) ? 50 : 120; // 5 sec (-0.3m/s) or 12 sec (-0.12m/s)
+    double speed = (mode == 1) ? -0.25 : -0.12;
+
+    if (m_iDepart_cnt < max_cnt) {
+        cmd.linear.x = speed;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+    } else {
+        cmd.linear.x = 0.0;
+        cmd.angular.z = 0.0;
+        cmd_vel_publisher->publish(cmd);
+        m_iDepart_cnt = 0;
+        m_iDocking_CommandMode = DOCK_NONE;
+        RCLCPP_INFO(this->get_logger(), "Depart lift station completed.");
+    }
+    return true;
+}
+
 // ─────────────────────── Docking State Machine ───────────────────────
 
 void TETRA_SERVICE::DockingThread_function()
 {
-    if (m_iDocking_CommandMode == 0) return;
+    if (m_iDocking_CommandMode == DOCK_NONE) return;
 
-    geometry_msgs::msg::Twist cmd;
-    cmd.linear.x = 0.0;
-    cmd.angular.z = 0.0;
+    publish_docking_progress(m_iDocking_CommandMode);
 
-    // Safety checks: Bumper / EMG
-    if (_pFlag_Value.m_bumperhit_flag || _pFlag_Value.m_emgpush_flag) {
-        cmd_vel_publisher->publish(cmd);
-        m_iDocking_CommandMode = 0;
-        RCLCPP_WARN(this->get_logger(), "Docking cancelled due to Bumper/EMG trigger!");
+    // Safety checks: Bumper / EMG (except during intentional low-speed contact)
+    if (_pFlag_Value.m_emgpush_flag ||
+        (_pFlag_Value.m_bumperhit_flag && m_iDocking_CommandMode != DOCK_CHARGE_APPROACH &&
+         m_iDocking_CommandMode != DOCK_LIFT_LOAD_TRACKING_2 && m_iDocking_CommandMode != DOCK_LIFT_UNLOAD_TRACKING_2)) {
+        docking_exit();
+        RCLCPP_WARN(this->get_logger(), "Docking aborted due to safety stop (Bumper/EMG)!");
         return;
     }
 
-    // Docking state machine
     switch (m_iDocking_CommandMode) {
-        case 1: // Search marker
-            if (_pAR_tag_pose.m_iApril_tag_id == _pAR_tag_pose.m_iSelect_April_tag_id) {
-                m_iNoMarker_cnt = 0;
-                m_iDocking_CommandMode = 2;
-                RCLCPP_INFO(this->get_logger(), "Marker found! Aligning...");
+        // ── Charging Station Docking (Modes 1~10) ──
+        case DOCK_CHARGE_START: // 1
+            LedToggleControl_Call(1, 3, 100, 3, 100);
+            ToggleOn_Call(63);
+            m_iDocking_CommandMode = DOCK_CHARGE_TRACKING_1;
+            break;
+
+        case DOCK_CHARGE_TRACKING_1: // 2
+            charging_station_tracking(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_CHARGE_YAW_ALIGN: // 3
+            charging_station_yaw_tracking();
+            break;
+
+        case DOCK_CHARGE_TRACKING_2: // 4
+            charging_station_tracking2(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_CHARGE_APPROACH: // 5
+            approach_station_move();
+            break;
+
+        case DOCK_CHARGE_FINISH: // 6
+            RCLCPP_INFO(this->get_logger(), "TETRA POSE Reset & Charging Station Docking Complete!");
+            set_robot_localization_pose(_pHomePose.HOME_dPOSITION_X, _pHomePose.HOME_dPOSITION_Y, 0.0);
+            LedToggleControl_Call(1, 5, 100, 5, 1);
+            ToggleOn_Call(63);
+            m_iDocking_CommandMode = DOCK_NONE;
+            break;
+
+        case DOCK_CHARGE_AUTO_PREVIEW: // 7
+            if (std::abs(_pAR_tag_pose.m_dPositioning_Angle) <= 0.0175) {
+                m_iDocking_CommandMode = DOCK_CHARGE_TRACKING_1;
             } else {
-                m_iNoMarker_cnt++;
-                if (m_iNoMarker_cnt > 300) { // Timeout
-                    RCLCPP_WARN(this->get_logger(), "Marker search timeout!");
-                    m_iDocking_CommandMode = 0;
-                }
+                m_iDocking_CommandMode = DOCK_CHARGE_TRACKING_1;
             }
             break;
 
-        case 2: { // Align rotation
-            double err_angle = _pAR_tag_pose.m_dPositioning_Angle;
-            if (std::abs(err_angle) > 0.04) {
-                cmd.angular.z = (err_angle > 0) ? 0.12 : -0.12;
-            } else {
-                m_iDocking_CommandMode = 3;
-                RCLCPP_INFO(this->get_logger(), "Alignment complete! Approaching...");
-            }
-            cmd_vel_publisher->publish(cmd);
+        case DOCK_CHARGE_FAIL: // 9
+            RCLCPP_WARN(this->get_logger(), "Charging Station Docking FAILED!");
+            LedToggleControl_Call(1, 10, 100, 10, 1);
+            ToggleOn_Call(18);
+            docking_exit();
             break;
-        }
 
-        case 3: { // Approach
-            double dist = _pAR_tag_pose.m_transform_pose_x;
-            double err_angle = _pAR_tag_pose.m_dPositioning_Angle;
-
-            if (dist > 0.45) {
-                cmd.linear.x = 0.08;
-                cmd.angular.z = err_angle * 0.5;
-            } else {
-                m_iDocking_CommandMode = 4;
-                RCLCPP_INFO(this->get_logger(), "Final docking entry...");
-            }
-            cmd_vel_publisher->publish(cmd);
+        case DOCK_CHARGE_DEPART: // 10
+            depart_station_move();
             break;
-        }
 
-        case 4: { // Final drive-in & contact check
-            if (_pRobot.m_iCallback_Charging_status == 2) { // Contact made!
-                RCLCPP_INFO(this->get_logger(), "Docking success! Charging started.");
-                cmd_vel_publisher->publish(cmd);
-                m_iDocking_CommandMode = 0;
-
-                // Reset localization to charging station
-                set_robot_localization_pose(_pHomePose.HOME_dPOSITION_X, _pHomePose.HOME_dPOSITION_Y, 0.0);
-            } else {
-                cmd.linear.x = 0.04;
-                cmd_vel_publisher->publish(cmd);
-            }
+        // ── Lift Station Loading Docking (Modes 11~19) ──
+        case DOCK_LIFT_LOAD_START: // 11
+            LedToggleControl_Call(1, 3, 100, 3, 100);
+            ToggleOn_Call(63);
+            m_iDocking_CommandMode = DOCK_LIFT_LOAD_TRACKING_1;
             break;
-        }
+
+        case DOCK_LIFT_LOAD_TRACKING_1: // 12
+            lift_station_tracking(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_LIFT_LOAD_YAW_ALIGN: // 13
+            lift_station_yaw_tracking();
+            break;
+
+        case DOCK_LIFT_LOAD_TRACKING_2: // 14
+            lift_station_tracking2(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_LIFT_LOAD_EXECUTE: // 15
+            // Lift UP action
+            ToggleOn_Call(1);
+            m_iDocking_CommandMode = DOCK_LIFT_LOAD_DEPART;
+            break;
+
+        case DOCK_LIFT_LOAD_DEPART: // 17
+            depart_lift_move(0);
+            break;
+
+        case DOCK_LIFT_LOAD_FAIL: // 19
+            RCLCPP_WARN(this->get_logger(), "Lift Loading Docking FAILED!");
+            docking_exit();
+            break;
+
+        // ── Lift Station Unloading Docking (Modes 21~29) ──
+        case DOCK_LIFT_UNLOAD_START: // 21
+            LedToggleControl_Call(1, 3, 100, 3, 100);
+            ToggleOn_Call(63);
+            m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_TRACKING_1;
+            break;
+
+        case DOCK_LIFT_UNLOAD_TRACKING_1: // 22
+            un_lift_station_tracking(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_LIFT_UNLOAD_YAW_ALIGN: // 23
+            un_lift_station_yaw_tracking();
+            break;
+
+        case DOCK_LIFT_UNLOAD_TRACKING_2: // 24
+            un_lift_station_tracking2(_pAR_tag_pose.m_iSelect_April_tag_id);
+            break;
+
+        case DOCK_LIFT_UNLOAD_EXECUTE: // 25
+            // Lift DOWN action
+            ToggleOn_Call(0);
+            m_iDocking_CommandMode = DOCK_LIFT_UNLOAD_DEPART;
+            break;
+
+        case DOCK_LIFT_UNLOAD_DEPART: // 27
+            depart_lift_move(1);
+            break;
+
+        case DOCK_LIFT_UNLOAD_FAIL: // 29
+            RCLCPP_WARN(this->get_logger(), "Lift Unloading Docking FAILED!");
+            docking_exit();
+            break;
 
         default:
             break;
@@ -565,9 +1019,7 @@ void TETRA_SERVICE::Docking_Stop_Command(
     std::shared_ptr<interfaces::srv::DockingStop::Response> response)
 {
     (void)request;
-    m_iDocking_CommandMode = 0;
-    geometry_msgs::msg::Twist stop_cmd;
-    cmd_vel_publisher->publish(stop_cmd);
+    docking_exit();
     response->command_result = true;
     RCLCPP_INFO(this->get_logger(), "Docking stopped by command.");
 }
@@ -658,7 +1110,6 @@ void TETRA_SERVICE::Set_Location_Command(
     const std::shared_ptr<interfaces::srv::SetLocation::Request> request,
     std::shared_ptr<interfaces::srv::SetLocation::Response> response)
 {
-    // Write location to JSON/file
     std::string loc_file = "/home/tetra/locations.txt";
     std::ofstream ofs(loc_file, std::ios::app);
     if (ofs.is_open()) {

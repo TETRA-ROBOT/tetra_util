@@ -110,6 +110,27 @@ private:
     void Footprint_CALC_Timer();
     void PoseResetMonitor_Timer();
 
+    // ── Docking & Lift Station Tracking Methods ──
+    bool charging_station_tracking(int marker_id);
+    bool charging_station_yaw_tracking();
+    bool charging_station_tracking2(int marker_id);
+    bool approach_station_move();
+    bool depart_station_move();
+
+    bool lift_station_tracking(int marker_id);
+    bool lift_station_yaw_tracking();
+    bool lift_station_tracking2(int marker_id);
+    bool un_lift_station_tracking(int marker_id);
+    bool un_lift_station_yaw_tracking();
+    bool un_lift_station_tracking2(int marker_id);
+    bool lift_check();
+    bool un_lift_check();
+    bool depart_lift_move(int mode);
+
+    void docking_exit();
+    void publish_docking_progress(int progress);
+    double rotation_movement();
+
     // ── Service Servers Callbacks ──
     void Docking_Command(
         const std::shared_ptr<interfaces::srv::DockingControl::Request> request,
@@ -194,6 +215,7 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr initial_pose_publisher;
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr movebase_publisher;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr footprint_publisher;
+    rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr docking_progress_publisher;
 
     // ── Subscribers ──
     rclcpp::Subscription<apriltag_msgs::msg::AprilTagDetectionArray>::SharedPtr apriltag_subscriber;
@@ -261,6 +283,10 @@ private:
     int m_iTrun_cnt = 0;
     int m_iBack_cnt = 0;
     int m_iPose_reset_cnt = 0;
+    int m_iYawAlign_cnt = 0;
+    int m_iStepBack_cnt = 0;
+    int m_iApproach_cnt = 0;
+    int m_iDepart_cnt = 0;
     int ex_ilaunchMode = 0;
     int ex_iRetry_count = 0;
     int ex_iRetry_Max_count = 9999;
