@@ -268,39 +268,42 @@ void TETRA_SERVICE::ApriltagCallback(const apriltag_msgs::msg::AprilTagDetection
 
     int iArray_size = msg->detections.size();
     if (iArray_size > 0) {
-        for (int i = 0; i < iArray_size; i++) {
-            iTag_id = msg->detections[i].id;
-            if (iTag_id == _pAR_tag_pose.m_iSelect_April_tag_id) {
-                _pAR_tag_pose.m_iApril_tag_id = iTag_id;
-                dX = msg->detections[i].pose.pose.pose.position.x;
-                dY = msg->detections[i].pose.pose.pose.position.y;
-                dZ = msg->detections[i].pose.pose.pose.position.z;
-                dOri_x = msg->detections[i].pose.pose.pose.orientation.x;
-                dOri_y = msg->detections[i].pose.pose.pose.orientation.y;
-                dOri_z = msg->detections[i].pose.pose.pose.orientation.z;
-                dOri_w = msg->detections[i].pose.pose.pose.orientation.w;
-
-                tf2::Quaternion q(dOri_x, dOri_y, dOri_z, dOri_w);
-                tf2::Matrix3x3 m(q);
-                m.getRPY(_pAR_tag_pose.m_dApril_tag_roll,
-                         _pAR_tag_pose.m_dApril_tag_pitch,
-                         _pAR_tag_pose.m_dApril_tag_yaw);
-
-                _pAR_tag_pose.m_dApril_tag_pose_x = dX;
-                _pAR_tag_pose.m_dApril_tag_pose_y = dY;
-                _pAR_tag_pose.m_dApril_tag_pose_z = dZ;
-                _pAR_tag_pose.m_dApril_tag_orientation_x = dOri_x;
-                _pAR_tag_pose.m_dApril_tag_orientation_y = dOri_y;
-                _pAR_tag_pose.m_dApril_tag_orientation_z = dOri_z;
-                _pAR_tag_pose.m_dApril_tag_orientation_w = dOri_w;
-
-                _pAR_tag_pose.m_transform_pose_x = dZ;
-                _pAR_tag_pose.m_transform_pose_y = -dX;
-                _pAR_tag_pose.m_dPositioning_Angle = -_pAR_tag_pose.m_dApril_tag_pitch;
-                _pAR_tag_pose.m_target_yaw = _pAR_tag_pose.m_dApril_tag_pitch;
-                break;
-            }
+        for (const auto &detection : msg->detections) {
+            _pAR_tag_pose.m_iApril_tag_id = detection.id;
         }
+        std::string strTF_frame_name = _pAR_tag_pose.m_strFamily + std::to_string(_pAR_tag_pose.m_iApril_tag_id);
+        if (!tf2_buffer_->canTransform("camera", strTF_frame_name, tf2::TimePointZero)) {
+            return;
+        }
+        geometry_msgs::msg::TransformStamped transformStamped;
+        try {
+            transformStamped = tf2_buffer_->lookupTransform("camera", strTF_frame_name, tf2::TimePointZero);
+        } catch (tf2::TransformException &ex) {
+            return;
+        }
+
+        _pAR_tag_pose.m_dApril_tag_pose_x = transformStamped.transform.translation.x;
+        _pAR_tag_pose.m_dApril_tag_pose_y = transformStamped.transform.translation.y;
+        _pAR_tag_pose.m_dApril_tag_pose_z = transformStamped.transform.translation.z;
+        _pAR_tag_pose.m_dApril_tag_orientation_x = transformStamped.transform.rotation.x;
+        _pAR_tag_pose.m_dApril_tag_orientation_y = transformStamped.transform.rotation.y;
+        _pAR_tag_pose.m_dApril_tag_orientation_z = transformStamped.transform.rotation.z;
+        _pAR_tag_pose.m_dApril_tag_orientation_w = transformStamped.transform.rotation.w;
+
+        tf2::Quaternion q(
+            _pAR_tag_pose.m_dApril_tag_orientation_x,
+            _pAR_tag_pose.m_dApril_tag_orientation_y,
+            _pAR_tag_pose.m_dApril_tag_orientation_z,
+            _pAR_tag_pose.m_dApril_tag_orientation_w);
+        tf2::Matrix3x3 m(q);
+        m.getRPY(_pAR_tag_pose.m_dApril_tag_roll,
+                 _pAR_tag_pose.m_dApril_tag_pitch,
+                 _pAR_tag_pose.m_dApril_tag_yaw);
+
+        _pAR_tag_pose.m_transform_pose_x = _pAR_tag_pose.m_dApril_tag_pose_z;
+        _pAR_tag_pose.m_transform_pose_y = -_pAR_tag_pose.m_dApril_tag_pose_x;
+        _pAR_tag_pose.m_dPositioning_Angle = -_pAR_tag_pose.m_dApril_tag_pitch;
+        _pAR_tag_pose.m_target_yaw = _pAR_tag_pose.m_dApril_tag_pitch;
     }
 }
 
@@ -1028,7 +1031,7 @@ void TETRA_SERVICE::Save_Map_Command(
     const std::shared_ptr<interfaces::srv::SaveMap::Request> request,
     std::shared_ptr<interfaces::srv::SaveMap::Response> response)
 {
-    std::string map_name = request->name;
+    std::string map_name = request->map_name;
     if (map_name.empty()) map_name = "map";
 
     std::string cmd = "ros2 run nav2_map_server map_saver_cli -f ~/maps/" + map_name + " > /dev/null 2>&1 &";
@@ -1041,8 +1044,8 @@ void TETRA_SERVICE::Delete_Map_Command(
     const std::shared_ptr<interfaces::srv::DeleteMap::Request> request,
     std::shared_ptr<interfaces::srv::DeleteMap::Response> response)
 {
-    std::string map_file = "/home/tetra/maps/" + request->name + ".yaml";
-    std::string pgm_file = "/home/tetra/maps/" + request->name + ".pgm";
+    std::string map_file = "/home/tetra/maps/" + request->map_name + ".yaml";
+    std::string pgm_file = "/home/tetra/maps/" + request->map_name + ".pgm";
 
     try {
         if (fs::exists(map_file)) fs::remove(map_file);
@@ -1057,7 +1060,7 @@ void TETRA_SERVICE::Mapping_Mode_Command(
     const std::shared_ptr<interfaces::srv::RunMapping::Request> request,
     std::shared_ptr<interfaces::srv::RunMapping::Response> response)
 {
-    if (request->mode == 1) {
+    if (request->flag_mapping) {
         run_process_async("ros2 launch tetra_bringup slam.launch.py &");
     } else {
         run_process_async("killall -9 cartographer_node slam_toolbox &");
@@ -1069,7 +1072,7 @@ void TETRA_SERVICE::Mapping_3D_Mode_Command(
     const std::shared_ptr<interfaces::srv::Run3DMapping::Request> request,
     std::shared_ptr<interfaces::srv::Run3DMapping::Response> response)
 {
-    if (request->mode == 1) {
+    if (!request->map_name.empty()) {
         run_process_async("ros2 launch tetra_bringup rtabmap.launch.py &");
     } else {
         run_process_async("killall -9 rtabmap &");
@@ -1081,7 +1084,7 @@ void TETRA_SERVICE::Navigation_Mode_Command(
     const std::shared_ptr<interfaces::srv::RunNavigation::Request> request,
     std::shared_ptr<interfaces::srv::RunNavigation::Response> response)
 {
-    if (request->mode == 1) {
+    if (!request->map_name.empty()) {
         std::string cmd = "ros2 launch tetra_bringup navigation.launch.py map:=/home/tetra/maps/" + request->map_name + ".yaml &";
         run_process_async(cmd);
     } else {
@@ -1097,12 +1100,10 @@ void TETRA_SERVICE::Get_Information_Command(
     (void)request;
     response->battery = _pRobot.m_iCallback_Battery;
     response->error_code = _pRobot.m_iCallback_ErrorCode;
-    response->emg_state = _pRobot.m_iCallback_EMG;
-    response->bumper_state = _pRobot.m_iCallback_Bumper;
-    response->charging_status = _pRobot.m_iCallback_Charging_status;
-    response->x = _pTF_pose.poseTFx;
-    response->y = _pTF_pose.poseTFy;
-    response->yaw = _pTF_pose.pose_euler_yaw;
+    response->emg = _pRobot.m_iCallback_EMG;
+    response->bumper = _pRobot.m_iCallback_Bumper;
+    response->charging = _pRobot.m_iCallback_Charging_status;
+    response->running_mode = 0;
     response->command_result = true;
 }
 
@@ -1110,18 +1111,15 @@ void TETRA_SERVICE::Set_Location_Command(
     const std::shared_ptr<interfaces::srv::SetLocation::Request> request,
     std::shared_ptr<interfaces::srv::SetLocation::Response> response)
 {
-    std::string loc_file = "/home/tetra/locations.txt";
-    std::ofstream ofs(loc_file, std::ios::app);
-    if (ofs.is_open()) {
-        ofs << request->location_name << " "
-            << _pTF_pose.poseTFx << " "
-            << _pTF_pose.poseTFy << " "
-            << _pTF_pose.pose_euler_yaw << "\n";
-        ofs.close();
-        response->command_result = true;
-    } else {
-        response->command_result = false;
-    }
+    (void)request;
+    response->pose_x = _pTF_pose.poseTFx;
+    response->pose_y = _pTF_pose.poseTFy;
+    response->pose_z = 0.0;
+    response->pose_qx = 0.0;
+    response->pose_qy = 0.0;
+    response->pose_qz = _pTF_pose.poseTFqz;
+    response->pose_qw = _pTF_pose.poseTFqw;
+    response->command_result = true;
 }
 
 void TETRA_SERVICE::Goto_Location_Command(
@@ -1145,16 +1143,13 @@ void TETRA_SERVICE::Goto_Location2_Command(
     auto goal_msg = NavigateToPose::Goal();
     goal_msg.pose.header.frame_id = "map";
     goal_msg.pose.header.stamp = this->now();
-    goal_msg.pose.pose.position.x = request->x;
-    goal_msg.pose.pose.position.y = request->y;
-    goal_msg.pose.pose.position.z = 0.0;
-
-    tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, request->yaw);
-    goal_msg.pose.pose.orientation.x = q.x();
-    goal_msg.pose.pose.orientation.y = q.y();
-    goal_msg.pose.pose.orientation.z = q.z();
-    goal_msg.pose.pose.orientation.w = q.w();
+    goal_msg.pose.pose.position.x = request->pose_x;
+    goal_msg.pose.pose.position.y = request->pose_y;
+    goal_msg.pose.pose.position.z = request->pose_z;
+    goal_msg.pose.pose.orientation.x = request->pose_qx;
+    goal_msg.pose.pose.orientation.y = request->pose_qy;
+    goal_msg.pose.pose.orientation.z = request->pose_qz;
+    goal_msg.pose.pose.orientation.w = request->pose_qw;
 
     auto send_goal_options = rclcpp_action::Client<NavigateToPose>::SendGoalOptions();
     send_goal_options.goal_response_callback = std::bind(&TETRA_SERVICE::goal_response_callback, this, _1);
@@ -1178,11 +1173,11 @@ void TETRA_SERVICE::Set_Maxspeed_Command(
     const std::shared_ptr<interfaces::srv::SetMaxspeed::Request> request,
     std::shared_ptr<interfaces::srv::SetMaxspeed::Response> response)
 {
-    auto parameters = std::vector<rclcpp::Parameter>{
-        rclcpp::Parameter("FollowPath.max_vel_x", request->max_linear_velocity),
-        rclcpp::Parameter("FollowPath.max_vel_theta", request->max_angular_velocity)
-    };
+    auto parameters = std::vector<rclcpp::Parameter>();
+    parameters.emplace_back(rclcpp::Parameter("FollowPath.desired_linear_vel", static_cast<double>(request->max_speed)));
+    parameters.emplace_back(rclcpp::Parameter("FollowPath.max_vel_x", static_cast<double>(request->max_speed)));
     set_speed_parameter_client_->set_parameters(parameters);
+    _pDynamic_param.MAX_Linear_velocity = request->max_speed;
     response->command_result = true;
 }
 
