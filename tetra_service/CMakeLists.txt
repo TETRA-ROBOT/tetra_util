@@ -30,12 +30,11 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(interfaces REQUIRED)
 find_package(robot_localization REQUIRED)
-find_package(apriltag_ros REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 
 include_directories(
-  ${PROJECT_SOURCE_DIR}
-  ${PROJECT_SOURCE_DIR}/src
+  include
+  ${PROJECT_SOURCE_DIR}/include
   ${rclcpp_INCLUDE_DIRS}
   ${rclcpp_action_INCLUDE_DIRS}
   ${std_msgs_INCLUDE_DIRS}
@@ -49,7 +48,6 @@ include_directories(
   ${tf2_geometry_msgs_INCLUDE_DIRS}
   ${interfaces_INCLUDE_DIRS}
   ${robot_localization_INCLUDE_DIRS}
-  ${apriltag_ros_INCLUDE_DIRS}
   ${apriltag_msgs_INCLUDE_DIRS}
 )
 
@@ -69,7 +67,6 @@ set(dependencies
   tf2_geometry_msgs
   interfaces
   robot_localization
-  apriltag_ros
   apriltag_msgs
 )
 
@@ -78,6 +75,11 @@ ament_target_dependencies(tetra_service ${dependencies})
 install(TARGETS 
   tetra_service
   DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+  include/
+  DESTINATION include/${PROJECT_NAME}
 )
 
 install(DIRECTORY
