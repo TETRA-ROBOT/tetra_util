@@ -16,7 +16,6 @@
 #include "opennav_docking/simple_charging_dock.hpp"
 #include "apriltag_msgs/msg/april_tag_detection_array.hpp"
 #include "robot_localization/srv/set_pose.hpp"
-#include "interfaces/srv/led_toggle_control.hpp"
 #include "interfaces/srv/toggle_on.hpp"
 
 namespace tetra_docking
@@ -42,7 +41,6 @@ protected:
   void dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg);
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
   void resetEkfPose(double x, double y, double yaw);
-  void setLedPattern(int mode);
 
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr docking_status_sub_;
@@ -50,7 +48,6 @@ protected:
 
   // Service Clients
   rclcpp::Client<robot_localization::srv::SetPose>::SharedPtr set_pose_client_;
-  rclcpp::Client<interfaces::srv::LedToggleControl>::SharedPtr led_toggle_client_;
   rclcpp::Client<interfaces::srv::ToggleOn>::SharedPtr toggle_on_client_;
 
   // Parameters

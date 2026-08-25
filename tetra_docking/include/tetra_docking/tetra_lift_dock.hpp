@@ -15,7 +15,6 @@
 #include "opennav_docking/simple_non_charging_dock.hpp"
 #include "apriltag_msgs/msg/april_tag_detection_array.hpp"
 #include "interfaces/srv/toggle_on.hpp"
-#include "interfaces/srv/led_toggle_control.hpp"
 
 namespace tetra_docking
 {
@@ -44,7 +43,6 @@ protected:
 
   // Service Clients
   rclcpp::Client<interfaces::srv::ToggleOn>::SharedPtr toggle_on_client_;
-  rclcpp::Client<interfaces::srv::LedToggleControl>::SharedPtr led_toggle_client_;
 
   // Parameters
   std::string marker_family_;

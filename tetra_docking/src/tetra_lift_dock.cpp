@@ -47,7 +47,6 @@ void TetraLiftDock::configure(
     std::bind(&TetraLiftDock::apriltagCallback, this, std::placeholders::_1));
 
   toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
-  led_toggle_client_ = node->create_client<interfaces::srv::LedToggleControl>("led_toggle_cmd");
 
   RCLCPP_INFO(
     node_->get_logger(),

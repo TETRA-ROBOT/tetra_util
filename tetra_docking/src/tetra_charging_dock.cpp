@@ -63,7 +63,6 @@ void TetraChargingDock::configure(
     std::bind(&TetraChargingDock::apriltagCallback, this, std::placeholders::_1));
 
   set_pose_client_ = node->create_client<robot_localization::srv::SetPose>("set_pose");
-  led_toggle_client_ = node->create_client<interfaces::srv::LedToggleControl>("led_toggle_cmd");
   toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
 
   RCLCPP_INFO(
@@ -115,7 +114,6 @@ bool TetraChargingDock::isDocked()
   if (current_docking_status_ >= contact_status_val_) {
     if (reset_ekf_pose_ && !pose_reset_done_) {
       resetEkfPose(home_x_, home_y_, 0.0);
-      setLedPattern(1); // Success pattern
       pose_reset_done_ = true;
     }
     return true;
@@ -124,7 +122,6 @@ bool TetraChargingDock::isDocked()
   bool docked = SimpleChargingDock::isDocked();
   if (docked && reset_ekf_pose_ && !pose_reset_done_) {
     resetEkfPose(home_x_, home_y_, 0.0);
-    setLedPattern(1);
     pose_reset_done_ = true;
   }
   return docked;
@@ -167,27 +164,6 @@ void TetraChargingDock::resetEkfPose(double x, double y, double yaw)
 
   set_pose_client_->async_send_request(request);
   RCLCPP_INFO(node_->get_logger(), "Sent SetPose to robot_localization: (%.2f, %.2f, %.2f)", x, y, yaw);
-}
-
-void TetraChargingDock::setLedPattern(int mode)
-{
-  if (led_toggle_client_->service_is_ready()) {
-    auto req = std::make_shared<interfaces::srv::LedToggleControl::Request>();
-    if (mode == 1) { // Success
-      req->de_index = 1;
-      req->light_accel = 5;
-      req->led_high_brightness = 100;
-      req->light_decel = 5;
-      req->led_low_brightness = 1;
-    } else { // In-progress
-      req->de_index = 1;
-      req->light_accel = 3;
-      req->led_high_brightness = 100;
-      req->light_decel = 3;
-      req->led_low_brightness = 100;
-    }
-    led_toggle_client_->async_send_request(req);
-  }
 }
 
 }  // namespace tetra_docking
