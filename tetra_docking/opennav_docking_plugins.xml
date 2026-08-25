@@ -1,0 +1,12 @@
+<library path="tetra_docking_plugins">
+  <class name="tetra_docking::TetraChargingDock" type="tetra_docking::TetraChargingDock" base_class_type="opennav_docking_core::ChargingDock">
+    <description>
+      Tetra Charging Station dock plugin using AprilTag vision perception, contact sensor verification, and EKF reset.
+    </description>
+  </class>
+  <class name="tetra_docking::TetraLiftDock" type="tetra_docking::TetraLiftDock" base_class_type="opennav_docking_core::ChargingDock">
+    <description>
+      Tetra Lift Station dock plugin for pallet loading/unloading with automated lift actuator control.
+    </description>
+  </class>
+</library>
