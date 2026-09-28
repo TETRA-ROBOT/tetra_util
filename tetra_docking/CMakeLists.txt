@@ -53,6 +53,18 @@ add_library(tetra_docking_plugins SHARED
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})
 
+get_filename_component(
+  OPENNAV_DOCKING_LIB_DIR
+  "${opennav_docking_DIR}/../../../lib"
+  REALPATH
+)
+
+target_link_libraries(
+  tetra_docking_plugins
+  "${OPENNAV_DOCKING_LIB_DIR}/libsimple_charging_dock.so"
+  "${OPENNAV_DOCKING_LIB_DIR}/libsimple_non_charging_dock.so"
+)
+
 pluginlib_export_plugin_description_file(opennav_docking_core opennav_docking_plugins.xml)
 
 install(TARGETS tetra_docking_plugins
