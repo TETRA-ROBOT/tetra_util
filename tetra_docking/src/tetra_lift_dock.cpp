@@ -94,24 +94,31 @@ bool TetraLiftDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, std::
 bool TetraLiftDock::isDocked()
 {
   bool docked = SimpleNonChargingDock::isDocked();
-  if (docked && !lift_executed_) {
-    executeLiftAction();
-    lift_executed_ = true;
+  // 접근 중(아직 도킹 전)에 플래그를 내린다. 예전에는 한 번 올린 뒤 내리는 곳이 없어
+  // docking_server 가 살아 있는 동안 두 번째 도킹부터 리프트가 움직이지 않았다
+  if (!docked) {
+    lift_executed_ = false;
+  } else if (!lift_executed_) {
+    lift_executed_ = executeLiftAction();
   }
   return docked;
 }
 
-void TetraLiftDock::executeLiftAction()
+bool TetraLiftDock::executeLiftAction()
 {
-  if (toggle_on_client_->service_is_ready()) {
-    auto req = std::make_shared<interfaces::srv::ToggleOn::Request>();
-    req->id = lift_action_mode_;
-    toggle_on_client_->async_send_request(req);
-    RCLCPP_INFO(
-      node_->get_logger(),
-      "Executed lift action: mode=%d (%s)",
-      lift_action_mode_, lift_action_mode_ == 1 ? "UP" : "DOWN");
+  // 서비스가 아직 없으면 실행한 것으로 치지 않아 다음 isDocked 호출에서 다시 시도한다
+  if (!toggle_on_client_->service_is_ready()) {
+    RCLCPP_WARN(node_->get_logger(), "Lift service not ready; will retry");
+    return false;
   }
+  auto req = std::make_shared<interfaces::srv::ToggleOn::Request>();
+  req->id = lift_action_mode_;
+  toggle_on_client_->async_send_request(req);
+  RCLCPP_INFO(
+    node_->get_logger(),
+    "Executed lift action: mode=%d (%s)",
+    lift_action_mode_, lift_action_mode_ == 1 ? "UP" : "DOWN");
+  return true;
 }
 
 }  // namespace tetra_docking

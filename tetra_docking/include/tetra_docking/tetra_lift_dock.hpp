@@ -35,7 +35,7 @@ public:
 protected:
   void conveyorSensorCallback(const std_msgs::msg::Int32::SharedPtr msg);
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
-  void executeLiftAction();
+  bool executeLiftAction();
 
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr conveyor_sensor_sub_;
