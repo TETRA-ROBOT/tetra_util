@@ -21,7 +21,6 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(interfaces REQUIRED)
-find_package(robot_localization REQUIRED)
 
 set(dependencies
   rclcpp
@@ -39,7 +38,6 @@ set(dependencies
   tf2_geometry_msgs
   apriltag_msgs
   interfaces
-  robot_localization
 )
 
 include_directories(

@@ -15,7 +15,6 @@
 
 #include "opennav_docking/simple_charging_dock.hpp"
 #include "apriltag_msgs/msg/april_tag_detection_array.hpp"
-#include "robot_localization/srv/set_pose.hpp"
 #include "interfaces/srv/toggle_on.hpp"
 
 namespace tetra_docking
@@ -40,14 +39,12 @@ public:
 protected:
   void dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg);
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
-  void resetEkfPose(double x, double y, double yaw);
 
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr docking_status_sub_;
   rclcpp::Subscription<apriltag_msgs::msg::AprilTagDetectionArray>::SharedPtr apriltag_sub_;
 
   // Service Clients
-  rclcpp::Client<robot_localization::srv::SetPose>::SharedPtr set_pose_client_;
   rclcpp::Client<interfaces::srv::ToggleOn>::SharedPtr toggle_on_client_;
 
   // Parameters
@@ -55,14 +52,10 @@ protected:
   std::string camera_frame_;
   std::string docking_status_topic_;
   int contact_status_val_;
-  bool reset_ekf_pose_;
-  double home_x_;
-  double home_y_;
   int latest_detected_tag_id_;
   geometry_msgs::msg::PoseStamped latest_tag_pose_;
   bool tag_detected_;
   int current_docking_status_;
-  bool pose_reset_done_;
 };
 
 }  // namespace tetra_docking

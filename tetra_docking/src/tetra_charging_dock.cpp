@@ -11,13 +11,9 @@ TetraChargingDock::TetraChargingDock()
   camera_frame_("camera"),
   docking_status_topic_("docking_status"),
   contact_status_val_(2),
-  reset_ekf_pose_(true),
-  home_x_(-0.7),
-  home_y_(0.0),
   latest_detected_tag_id_(-1),
   tag_detected_(false),
-  current_docking_status_(0),
-  pose_reset_done_(false)
+  current_docking_status_(0)
 {
 }
 
@@ -39,20 +35,11 @@ void TetraChargingDock::configure(
     node, name + ".docking_status_topic", rclcpp::ParameterValue("docking_status"));
   nav2_util::declare_parameter_if_not_declared(
     node, name + ".contact_status_val", rclcpp::ParameterValue(2));
-  nav2_util::declare_parameter_if_not_declared(
-    node, name + ".reset_ekf_pose", rclcpp::ParameterValue(true));
-  nav2_util::declare_parameter_if_not_declared(
-    node, name + ".home_x", rclcpp::ParameterValue(-0.7));
-  nav2_util::declare_parameter_if_not_declared(
-    node, name + ".home_y", rclcpp::ParameterValue(0.0));
 
   node->get_parameter(name + ".marker_family", marker_family_);
   node->get_parameter(name + ".camera_frame", camera_frame_);
   node->get_parameter(name + ".docking_status_topic", docking_status_topic_);
   node->get_parameter(name + ".contact_status_val", contact_status_val_);
-  node->get_parameter(name + ".reset_ekf_pose", reset_ekf_pose_);
-  node->get_parameter(name + ".home_x", home_x_);
-  node->get_parameter(name + ".home_y", home_y_);
 
   docking_status_sub_ = node->create_subscription<std_msgs::msg::Int32>(
     docking_status_topic_, 1,
@@ -62,13 +49,12 @@ void TetraChargingDock::configure(
     "detections", 10,
     std::bind(&TetraChargingDock::apriltagCallback, this, std::placeholders::_1));
 
-  set_pose_client_ = node->create_client<robot_localization::srv::SetPose>("set_pose");
   toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
 
   RCLCPP_INFO(
     node_->get_logger(),
-    "Configured TetraChargingDock plugin: family=%s, contact_val=%d, reset_ekf=%s, home=(%.2f, %.2f)",
-    marker_family_.c_str(), contact_status_val_, reset_ekf_pose_ ? "true" : "false", home_x_, home_y_);
+    "Configured TetraChargingDock plugin: family=%s, contact_val=%d",
+    marker_family_.c_str(), contact_status_val_);
 }
 
 void TetraChargingDock::dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -109,22 +95,14 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
   return SimpleChargingDock::getRefinedPose(pose, id);
 }
 
+// 예전에는 접점이 붙을 때 EKF 를 고정 map 좌표(home_x, home_y)로 리셋했다. 도크 위치는 지도마다 달라
+// 고정 좌표와 다르면 위치가 순간이동하므로 기능을 없앴다 (2026-10-28)
 bool TetraChargingDock::isDocked()
 {
   if (current_docking_status_ >= contact_status_val_) {
-    if (reset_ekf_pose_ && !pose_reset_done_) {
-      resetEkfPose(home_x_, home_y_, 0.0);
-      pose_reset_done_ = true;
-    }
     return true;
   }
-
-  bool docked = SimpleChargingDock::isDocked();
-  if (docked && reset_ekf_pose_ && !pose_reset_done_) {
-    resetEkfPose(home_x_, home_y_, 0.0);
-    pose_reset_done_ = true;
-  }
-  return docked;
+  return SimpleChargingDock::isDocked();
 }
 
 bool TetraChargingDock::isCharging()
@@ -137,33 +115,12 @@ bool TetraChargingDock::isCharging()
 
 bool TetraChargingDock::disableCharging()
 {
-  pose_reset_done_ = false;
   return true;
 }
 
 bool TetraChargingDock::hasStoppedCharging()
 {
   return current_docking_status_ < contact_status_val_;
-}
-
-void TetraChargingDock::resetEkfPose(double x, double y, double yaw)
-{
-  if (!set_pose_client_->service_is_ready()) {
-    return;
-  }
-  auto request = std::make_shared<robot_localization::srv::SetPose::Request>();
-  request->pose.header.frame_id = "map";
-  request->pose.header.stamp = node_->now();
-  request->pose.pose.pose.position.x = x;
-  request->pose.pose.pose.position.y = y;
-  request->pose.pose.pose.position.z = 0.0;
-
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, yaw);
-  request->pose.pose.pose.orientation = tf2::toMsg(q);
-
-  set_pose_client_->async_send_request(request);
-  RCLCPP_INFO(node_->get_logger(), "Sent SetPose to robot_localization: (%.2f, %.2f, %.2f)", x, y, yaw);
 }
 
 }  // namespace tetra_docking
