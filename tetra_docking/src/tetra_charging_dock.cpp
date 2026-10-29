@@ -103,15 +103,17 @@ void TetraChargingDock::configure(
 
   toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
   configureTagStaging(node, name);
+  configureBumperGuard(node, name);
+  configureApproachShaping(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
     "Configured TetraChargingDock plugin %s: family=%s, contact_val=%d, tag_tf_as_detection=%d, "
     "charge_requires_contact=%d, blind_approach_distance=%.2f, undock_tag_distance=%.2f, "
-    "tag_staging=%d (%.2f m)",
+    "tag_staging=%d (%.2f m), bumper_topic=%s",
     name.c_str(), marker_family_.c_str(), contact_status_val_, tag_tf_as_detection_,
     charge_requires_contact_, blind_approach_distance_, undock_tag_distance_, tag_staging_,
-    tag_staging_distance_);
+    tag_staging_distance_, bumper_topic_.c_str());
 }
 
 void TetraChargingDock::dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -158,6 +160,7 @@ void TetraChargingDock::updateDetectionFromTagTf(const std::string & id)
 
 bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, std::string id)
 {
+  stopIfBumperPressed();
   if (tag_tf_as_detection_) {
     updateDetectionFromTagTf(id);
     // 기본 구현은 시간 초과면 경고만 찍고 false 를 돌려준다. 그 전에 최신 검출인지 직접 보고 근접 구간만 마저 간다
@@ -165,13 +168,16 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
       node_->now() - rclcpp::Time(detected_dock_pose_.header.stamp) <=
       rclcpp::Duration::from_seconds(external_detection_timeout_);
     if (!fresh && getBlindApproachPose(pose)) {
+      shapeFinalApproach(pose);
       return true;
     }
     if (!SimpleChargingDock::getRefinedPose(pose, id)) {
       return false;
     }
+    // 근접 구간 이어받기에는 실제 도크 자세를 남기고, 제어 목표만 마지막 구간에 맞게 옮긴다
     last_detected_dock_pose_ = pose;
     last_detection_time_ = node_->now();
+    shapeFinalApproach(pose);
     return true;
   }
 

@@ -4,6 +4,8 @@
 #include <memory>
 #include <chrono>
 #include <mutex>
+#include <atomic>
+#include <cstdint>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -71,6 +73,15 @@ protected:
     const DockSample & dock, const std::string & frame, double staging_distance,
     geometry_msgs::msg::PoseStamped & robot_pose);
 
+  // 범퍼 정지 (bumper_guard.cpp)
+  void configureBumperGuard(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  void bumperCallback(const std_msgs::msg::Int32::SharedPtr msg);
+  void stopIfBumperPressed();
+
+  // 마지막 구간 heading 우선 (approach_shaping.cpp)
+  void configureApproachShaping(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  void shapeFinalApproach(geometry_msgs::msg::PoseStamped & pose);
+
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr docking_status_sub_;
   rclcpp::Subscription<apriltag_msgs::msg::AprilTagDetectionArray>::SharedPtr apriltag_sub_;
@@ -86,7 +97,8 @@ protected:
   int latest_detected_tag_id_;
   geometry_msgs::msg::PoseStamped latest_tag_pose_;
   bool tag_detected_;
-  int current_docking_status_;
+  // 구독 콜백과 도킹 액션 스레드가 같이 읽고 쓴다
+  std::atomic<int> current_docking_status_;
   bool tag_tf_as_detection_;
   bool charge_requires_contact_;
   double blind_approach_distance_;
@@ -115,6 +127,19 @@ protected:
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   std::mutex intrinsics_mutex_;
   CameraIntrinsics intrinsics_;
+
+  // 범퍼 정지 파라미터
+  std::string bumper_topic_;
+  int bumper_mask_{1};
+  double bumper_grace_{0.0};
+  rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr bumper_sub_;
+  // 눌리기 시작한 ROS 시각(ns), 안 눌렸으면 0
+  std::atomic<int64_t> bumper_pressed_since_ns_{0};
+  std::atomic<int64_t> bumper_last_msg_ns_{0};
+
+  // 마지막 구간 heading 우선 파라미터
+  double heading_priority_near_{0.0};
+  double heading_priority_far_{0.0};
 };
 
 }  // namespace tetra_docking

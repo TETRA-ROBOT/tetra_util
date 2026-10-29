@@ -22,6 +22,8 @@
               │
               ▼
   [ 2단계: AR 마커/라인 정밀 정렬 ] (tetra_docking 플러그인)
+     heading_priority_near/far 가 켜져 있으면 도크 바로 앞에서는 도크와 나란히 곧게 들어간다 (src/approach_shaping.cpp)
+     bumper_topic 이 켜져 있으면 접점 없이 앞 범퍼가 bumper_grace 넘게 눌릴 때 905 로 멈춘다 (src/bumper_guard.cpp)
               │
               ▼
   [ 3단계: 충전 패드 접촉 및 충전 전류 감지 ] (tetra_power_driver)
