@@ -47,6 +47,8 @@ include_directories(
 add_library(tetra_docking_plugins SHARED
   src/tetra_charging_dock.cpp
   src/tetra_lift_dock.cpp
+  src/tag_staging.cpp
+  src/tag_view.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})

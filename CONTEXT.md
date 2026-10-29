@@ -16,7 +16,9 @@
   [ 도킹 시작 요청 (Action) ]
               │
               ▼
-  [ 1단계: 스테이션 전방 1m 접근 ] (Nav2 자율주행)
+  [ 1단계: staging 자세로 접근 ] (Nav2 자율주행)
+     tag_staging 이 켜져 있고 태그가 보이면 검출 평균으로 구한 태그 정면 축 위 지점,
+     아니면 목표 도크 자세 + staging_x_offset (src/tag_staging.cpp)
               │
               ▼
   [ 2단계: AR 마커/라인 정밀 정렬 ] (tetra_docking 플러그인)

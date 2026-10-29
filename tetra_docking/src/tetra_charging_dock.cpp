@@ -22,7 +22,21 @@ TetraChargingDock::TetraChargingDock()
   blind_approach_timeout_(8.0),
   undock_tag_distance_(0.0),
   undock_tag_lateral_(0.2),
-  last_detection_time_(0, 0, RCL_ROS_TIME)
+  last_detection_time_(0, 0, RCL_ROS_TIME),
+  tag_staging_(false),
+  tag_staging_distance_(0.6),
+  tag_staging_distance_min_(0.4),
+  tag_staging_distance_max_(1.0),
+  tag_staging_sample_time_(0.6),
+  tag_staging_min_samples_(3),
+  tag_staging_max_age_(1.5),
+  tag_staging_max_tag_distance_(2.5),
+  tag_staging_max_oblique_(0.87),
+  tag_staging_skip_lateral_(0.05),
+  tag_staging_skip_yaw_(0.1),
+  tag_size_(0.1),
+  tag_min_pixels_(50.0),
+  tag_image_margin_(10.0)
 {
 }
 
@@ -88,13 +102,16 @@ void TetraChargingDock::configure(
     std::bind(&TetraChargingDock::apriltagCallback, this, std::placeholders::_1));
 
   toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
+  configureTagStaging(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
     "Configured TetraChargingDock plugin %s: family=%s, contact_val=%d, tag_tf_as_detection=%d, "
-    "charge_requires_contact=%d, blind_approach_distance=%.2f, undock_tag_distance=%.2f",
+    "charge_requires_contact=%d, blind_approach_distance=%.2f, undock_tag_distance=%.2f, "
+    "tag_staging=%d (%.2f m)",
     name.c_str(), marker_family_.c_str(), contact_status_val_, tag_tf_as_detection_,
-    charge_requires_contact_, blind_approach_distance_, undock_tag_distance_);
+    charge_requires_contact_, blind_approach_distance_, undock_tag_distance_, tag_staging_,
+    tag_staging_distance_);
 }
 
 void TetraChargingDock::dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg)
