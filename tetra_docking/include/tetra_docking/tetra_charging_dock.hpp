@@ -39,6 +39,8 @@ public:
 protected:
   void dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg);
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
+  std::string tagFrameFor(const std::string & id) const;
+  void updateDetectionFromTagTf(const std::string & id);
 
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr docking_status_sub_;
@@ -56,6 +58,7 @@ protected:
   geometry_msgs::msg::PoseStamped latest_tag_pose_;
   bool tag_detected_;
   int current_docking_status_;
+  bool tag_tf_as_detection_;
 };
 
 }  // namespace tetra_docking
