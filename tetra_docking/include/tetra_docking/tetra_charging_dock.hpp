@@ -41,6 +41,8 @@ protected:
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
   std::string tagFrameFor(const std::string & id) const;
   void updateDetectionFromTagTf(const std::string & id);
+  bool getBlindApproachPose(geometry_msgs::msg::PoseStamped & pose);
+  bool isTagCloseAhead();
 
   // Subscribers
   rclcpp::Subscription<std_msgs::msg::Int32>::SharedPtr docking_status_sub_;
@@ -59,6 +61,13 @@ protected:
   bool tag_detected_;
   int current_docking_status_;
   bool tag_tf_as_detection_;
+  bool charge_requires_contact_;
+  double blind_approach_distance_;
+  double blind_approach_timeout_;
+  double undock_tag_distance_;
+  double undock_tag_lateral_;
+  geometry_msgs::msg::PoseStamped last_detected_dock_pose_;
+  rclcpp::Time last_detection_time_;
 };
 
 }  // namespace tetra_docking
