@@ -77,6 +77,14 @@ protected:
   void configureBumperGuard(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
   void bumperCallback(const std_msgs::msg::Int32::SharedPtr msg);
   void stopIfBumperPressed();
+  void stopUndockIfBumperPressed();
+
+  // 도킹 영점 (dock_offset.cpp)
+  void configureDockOffset(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  rcl_interfaces::msg::SetParametersResult onDockOffsetParameters(const std::vector<rclcpp::Parameter> & params);
+  DockSample applyDockOffset(const DockSample & dock) const;
+  void applyDockOffset(geometry_msgs::msg::PoseStamped & pose) const;
+  bool isDockDepthReached();
 
   // 마지막 구간 heading 우선 (approach_shaping.cpp)
   void configureApproachShaping(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
@@ -136,6 +144,18 @@ protected:
   // 눌리기 시작한 ROS 시각(ns), 안 눌렸으면 0
   std::atomic<int64_t> bumper_pressed_since_ns_{0};
   std::atomic<int64_t> bumper_last_msg_ns_{0};
+  // 언도킹(후진) 중 이 비트가 눌리면 멈춘다. 0 이면 보지 않는다 (MH 는 뒤 범퍼 0x08)
+  int undock_bumper_mask_{0};
+  std::atomic<int> bumper_last_data_{0};
+
+  // 도킹 영점 파라미터 (관제가 도킹 직전에 바꾼다)
+  std::string offset_param_prefix_;
+  std::atomic<double> dock_offset_x_{0.0};
+  std::atomic<double> dock_offset_y_{0.0};
+  std::atomic<double> dock_offset_yaw_{0.0};
+  // 도착 판정을 도크 축 깊이만으로 한다 (좌우 잔여 오차가 docking_threshold 보다 커도 멈추게)
+  bool docked_by_depth_{false};
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr offset_param_handle_;
 
   // 마지막 구간 heading 우선 파라미터
   double heading_priority_near_{0.0};

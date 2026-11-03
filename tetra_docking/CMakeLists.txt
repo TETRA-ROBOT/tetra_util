@@ -51,6 +51,7 @@ add_library(tetra_docking_plugins SHARED
   src/tag_view.cpp
   src/bumper_guard.cpp
   src/approach_shaping.cpp
+  src/dock_offset.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})

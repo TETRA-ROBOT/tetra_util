@@ -215,7 +215,8 @@ DockSample TetraChargingDock::dockSampleFromTag(const geometry_msgs::msg::Transf
     std::sin(yaw) * external_detection_translation_y_;
   sample.y = fixed_to_tag.translation.y + std::sin(yaw) * external_detection_translation_x_ +
     std::cos(yaw) * external_detection_translation_y_;
-  return sample;
+  // staging 축도 접근 중 도크 자세와 같은 영점을 써야 마지막 구간에서 옆으로 꺾지 않는다
+  return applyDockOffset(sample);
 }
 
 double TetraChargingDock::stagingDistanceFor(const TagDockEstimate & estimate)
@@ -235,8 +236,8 @@ double TetraChargingDock::stagingDistanceFor(const TagDockEstimate & estimate)
     RCLCPP_WARN(node_->get_logger(), "Tag staging: camera TF unavailable (%s)", ex.what());
     return tag_staging_distance_;
   }
-  inputs.tag_ahead_of_dock = -external_detection_translation_x_;
-  inputs.tag_lateral = -external_detection_translation_y_;
+  inputs.tag_ahead_of_dock = -(external_detection_translation_x_ + dock_offset_x_);
+  inputs.tag_lateral = -(external_detection_translation_y_ + dock_offset_y_);
   inputs.tag_height = estimate.tag_height;
   inputs.tag_size = tag_size_;
   inputs.margin_px = tag_image_margin_;

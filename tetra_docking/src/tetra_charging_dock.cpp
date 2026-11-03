@@ -105,6 +105,7 @@ void TetraChargingDock::configure(
   configureTagStaging(node, name);
   configureBumperGuard(node, name);
   configureApproachShaping(node, name);
+  configureDockOffset(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
@@ -174,6 +175,9 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
     if (!SimpleChargingDock::getRefinedPose(pose, id)) {
       return false;
     }
+    // 도크 자세 도착 판정(isDocked)도 dock_pose_ 를 보므로 영점을 옮긴 자세를 같이 남긴다
+    applyDockOffset(pose);
+    dock_pose_ = pose;
     // 근접 구간 이어받기에는 실제 도크 자세를 남기고, 제어 목표만 마지막 구간에 맞게 옮긴다
     last_detected_dock_pose_ = pose;
     last_detection_time_ = node_->now();
@@ -267,6 +271,9 @@ bool TetraChargingDock::isDocked()
   if (undock_tag_distance_ > 0.0) {
     return isTagCloseAhead();
   }
+  if (docked_by_depth_) {
+    return isDockDepthReached();
+  }
   return SimpleChargingDock::isDocked();
 }
 
@@ -288,6 +295,7 @@ bool TetraChargingDock::disableCharging()
 
 bool TetraChargingDock::hasStoppedCharging()
 {
+  stopUndockIfBumperPressed();
   return current_docking_status_ < contact_status_val_;
 }
 
