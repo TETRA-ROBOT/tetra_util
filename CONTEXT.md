@@ -29,6 +29,9 @@
      docked_by_depth 가 켜져 있으면 도크 축 깊이만으로 도착을 판정한다 (좌우 잔여 오차로 판정 폭을 못 맞추는 것 방지)
      undock_bumper_mask 가 켜져 있으면 언도킹 후진 중 그 범퍼 비트가 눌리면 멈춘다 (MH 뒤 범퍼 0x08)
      lock_dock_yaw_to_staging 이 켜져 있으면 접근 중에는 태그 위치만 쓰고 yaw 는 staging 때 멈춰서 평균한 값으로 고정한다 (src/staging_yaw_lock.cpp, M)
+     tag_staging_frame 을 odom 으로 두면 staging 을 odom 기준으로 낸다 (map 은 AMCL 보정에 흔들려 태그 축에서 벗어났다, M)
+     tag_search_angle 이 0 보다 크면 staging 에서 태그가 안 보일 때 제자리에서 천천히 좌우로 돌며 찾고, 영상 중앙에 맞춘 뒤
+     멈춘 채로 확인한다 (src/tag_search.cpp, M). 지나가며 스친 검출은 확인으로 보지 않는다
      후진 도킹(M, staging_yaw_offset pi): bumper_mask 8(뒤)·undock_bumper_mask 1(앞), tag staging 의 축 판정·태그 시야 계산도 후진을 따른다
               │
               ▼

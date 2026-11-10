@@ -1,5 +1,6 @@
 #pragma once
 
+#include "geometry_msgs/msg/twist.hpp"
 #include <string>
 #include <memory>
 #include <chrono>
@@ -86,6 +87,20 @@ protected:
   void applyDockOffset(geometry_msgs::msg::PoseStamped & pose) const;
   bool isDockDepthReached();
 
+  // 태그 탐색 (tag_search.cpp)
+  void configureTagSearch(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  void resetTagSearch();
+  bool searchForTag();
+  bool confirmTagSeen(const std::string & frame);
+  bool centerOnTag();
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr search_cmd_pub_;
+  double tag_search_angle_{0.0};
+  double tag_search_speed_{0.05};
+  bool tag_seen_this_docking_{true};
+  bool search_active_{false};
+  int search_step_{0};
+  double search_origin_yaw_{0.0};
+
   // 도크 yaw 고정 (staging_yaw_lock.cpp)
   void configureYawLock(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
   void rememberStagingYaw(const DockSample & dock, const std::string & frame);
@@ -143,6 +158,7 @@ protected:
   double tag_min_pixels_;
   double tag_image_margin_;
   std::string camera_info_topic_;
+  std::string tag_staging_frame_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_sub_;
   std::mutex intrinsics_mutex_;
   CameraIntrinsics intrinsics_;

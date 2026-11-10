@@ -54,6 +54,10 @@ void TetraChargingDock::configureTagStaging(
   param("tag_min_pixels", rclcpp::ParameterValue(50.0), tag_min_pixels_);
   param("tag_image_margin", rclcpp::ParameterValue(10.0), tag_image_margin_);
   param("camera_info_topic", rclcpp::ParameterValue(std::string("")), camera_info_topic_);
+  // 비우면 도크 프레임(map)에서 staging 을 낸다. map 은 AMCL 이 로봇이 움직일 때마다 보정해, 태그를 본 뒤 첫 주행에서
+  // map->odom 이 바뀌면 staging 이 실제 태그 축에서 벗어난다 (실기 M 2026-11-10: Nav2 는 도착인데 태그가 14도 옆).
+  // odom 으로 내면 Nav2 가 재계획마다 최신 TF 로 목표를 옮겨 실제 태그 기준으로 선다
+  param("tag_staging_frame", rclcpp::ParameterValue(std::string("")), tag_staging_frame_);
 
   if (tag_staging_ && !camera_info_topic_.empty()) {
     camera_info_sub_ = node->create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -76,20 +80,27 @@ void TetraChargingDock::cameraInfoCallback(const sensor_msgs::msg::CameraInfo::S
 geometry_msgs::msg::PoseStamped TetraChargingDock::getStagingPose(
   const geometry_msgs::msg::Pose & pose, const std::string & frame)
 {
-  if (!tag_staging_ || isUndockRequest(pose, frame)) {
+  if (isUndockRequest(pose, frame)) {
     return SimpleChargingDock::getStagingPose(pose, frame);
   }
+  // 새 도킹: 지난 도킹의 탐색 상태·고정 yaw 를 쓰지 않는다
+  resetTagSearch();
+  locked_yaw_valid_ = false;
+  if (!tag_staging_) {
+    return SimpleChargingDock::getStagingPose(pose, frame);
+  }
+  const std::string & staging_frame = tag_staging_frame_.empty() ? frame : tag_staging_frame_;
   TagDockEstimate estimate;
-  if (!estimateDockFromTag(frame, estimate)) {
+  if (!estimateDockFromTag(staging_frame, estimate)) {
     RCLCPP_WARN(node_->get_logger(), "Tag staging unavailable, staging from the goal dock pose");
     return SimpleChargingDock::getStagingPose(pose, frame);
   }
 
   const double distance = stagingDistanceFor(estimate);
   const DockSample & dock = estimate.dock;
-  rememberStagingYaw(dock, frame);
+  rememberStagingYaw(dock, staging_frame);
   geometry_msgs::msg::PoseStamped staging;
-  staging.header.frame_id = frame;
+  staging.header.frame_id = staging_frame;
   staging.header.stamp = node_->now();
   staging.pose.position.x = dock.x - std::cos(dock.yaw) * distance;
   staging.pose.position.y = dock.y - std::sin(dock.yaw) * distance;
@@ -98,14 +109,14 @@ geometry_msgs::msg::PoseStamped TetraChargingDock::getStagingPose(
   staging.pose.orientation = tf2::toMsg(orientation);
 
   geometry_msgs::msg::PoseStamped robot_pose;
-  if (robotOnApproachLine(dock, frame, distance, robot_pose)) {
+  if (robotOnApproachLine(dock, staging_frame, distance, robot_pose)) {
     // 도킹 서버는 로봇이 staging 자세 허용 범위 안이면 Nav2 주행을 건너뛴다
     staging = robot_pose;
   }
   RCLCPP_INFO(
     node_->get_logger(),
     "Tag staging: dock (%.2f, %.2f, %.2f rad) in %s from %zu samples, staging %.2f m before the dock "
-    "at (%.2f, %.2f)", dock.x, dock.y, dock.yaw, frame.c_str(), estimate.samples, distance,
+    "at (%.2f, %.2f)", dock.x, dock.y, dock.yaw, staging_frame.c_str(), estimate.samples, distance,
     staging.pose.position.x, staging.pose.position.y);
   staging_pose_pub_->publish(staging);
   return staging;

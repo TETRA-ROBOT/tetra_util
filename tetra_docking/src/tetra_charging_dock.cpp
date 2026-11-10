@@ -107,6 +107,7 @@ void TetraChargingDock::configure(
   configureApproachShaping(node, name);
   configureDockOffset(node, name);
   configureYawLock(node, name);
+  configureTagSearch(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
@@ -169,9 +170,21 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
     const bool fresh = detected_dock_pose_.header.frame_id.size() > 0 &&
       node_->now() - rclcpp::Time(detected_dock_pose_.header.stamp) <=
       rclcpp::Duration::from_seconds(external_detection_timeout_);
+    // 보이긴 하지만 아직 멈춘 채로 확인하지 못했으면 (지나가며 스친 검출) 계속 찾는다
+    if (fresh && centerOnTag()) {
+      return false;
+    }
+    if (fresh && !confirmTagSeen(pose.header.frame_id)) {
+      searchForTag();
+      return false;
+    }
     if (!fresh && getBlindApproachPose(pose)) {
       shapeFinalApproach(pose);
       return true;
+    }
+    // 아직 태그를 못 본 초기 인식이면 제자리에서 돌며 찾는다 (찾을 때까지 검출 실패로 돌려준다)
+    if (!fresh && searchForTag()) {
+      return false;
     }
     if (!SimpleChargingDock::getRefinedPose(pose, id)) {
       return false;
