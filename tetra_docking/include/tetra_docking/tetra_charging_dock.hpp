@@ -86,6 +86,17 @@ protected:
   void applyDockOffset(geometry_msgs::msg::PoseStamped & pose) const;
   bool isDockDepthReached();
 
+  // 도크 yaw 고정 (staging_yaw_lock.cpp)
+  void configureYawLock(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  void rememberStagingYaw(const DockSample & dock, const std::string & frame);
+  void lockDockYaw(geometry_msgs::msg::PoseStamped & pose);
+  bool lock_dock_yaw_to_staging_{false};
+  double locked_yaw_timeout_{150.0};
+  bool locked_yaw_valid_{false};
+  double locked_yaw_{0.0};
+  std::string locked_yaw_frame_;
+  rclcpp::Time locked_yaw_time_{0, 0, RCL_ROS_TIME};
+
   // 마지막 구간 heading 우선 (approach_shaping.cpp)
   void configureApproachShaping(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
   void shapeFinalApproach(geometry_msgs::msg::PoseStamped & pose);

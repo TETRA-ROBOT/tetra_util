@@ -26,6 +26,8 @@ TagView projectTagAtStaging(const StagingViewInputs & inputs, double staging_dis
   }
   const double half = inputs.tag_size / 2.0;
   const double forward = staging_distance + inputs.tag_ahead_of_dock;
+  // 도크 축 좌표(도크 쪽 +, 왼쪽 +)를 base_link 로 옮긴다. 후진이면 로봇이 180도 돌아 서 있다
+  const double side = inputs.backward ? -1.0 : 1.0;
   double min_u = std::numeric_limits<double>::max();
   double max_u = std::numeric_limits<double>::lowest();
   bool inside = true;
@@ -33,7 +35,7 @@ TagView projectTagAtStaging(const StagingViewInputs & inputs, double staging_dis
   for (const double dy : {-half, half}) {
     for (const double dz : {-half, half}) {
       const tf2::Vector3 corner = inputs.optical_from_base *
-        tf2::Vector3(forward, inputs.tag_lateral + dy, inputs.tag_height + dz);
+        tf2::Vector3(side * forward, side * (inputs.tag_lateral + dy), inputs.tag_height + dz);
       if (corner.z() <= 0.0) {
         return view;
       }

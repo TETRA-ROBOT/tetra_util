@@ -27,6 +27,8 @@
      dock_offset_x/_y/_yaw (관제 관리자 설정 '도킹 영점', 도킹 직전에 API 가 넣음) 로 태그 기준 도크 자세를 로봇마다 옮긴다 (src/dock_offset.cpp)
      docked_by_depth 가 켜져 있으면 도크 축 깊이만으로 도착을 판정한다 (좌우 잔여 오차로 판정 폭을 못 맞추는 것 방지)
      undock_bumper_mask 가 켜져 있으면 언도킹 후진 중 그 범퍼 비트가 눌리면 멈춘다 (MH 뒤 범퍼 0x08)
+     lock_dock_yaw_to_staging 이 켜져 있으면 접근 중에는 태그 위치만 쓰고 yaw 는 staging 때 멈춰서 평균한 값으로 고정한다 (src/staging_yaw_lock.cpp, M)
+     후진 도킹(M, staging_yaw_offset pi): bumper_mask 8(뒤)·undock_bumper_mask 1(앞), tag staging 의 축 판정·태그 시야 계산도 후진을 따른다
               │
               ▼
   [ 3단계: 충전 패드 접촉 및 충전 전류 감지 ] (tetra_power_driver)

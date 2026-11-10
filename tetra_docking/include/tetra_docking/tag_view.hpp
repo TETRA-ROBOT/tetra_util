@@ -39,6 +39,8 @@ struct StagingViewInputs
   double tag_size{0.1};
   double margin_px{10.0};
   double min_pixels{40.0};
+  // 후진 도킹(M): 로봇이 도크를 등지고 서므로 태그가 base_link 뒤(-x)에, 좌우도 반대로 보인다
+  bool backward{false};
 };
 
 struct DockSample

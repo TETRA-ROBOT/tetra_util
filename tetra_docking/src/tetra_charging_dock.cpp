@@ -106,6 +106,7 @@ void TetraChargingDock::configure(
   configureBumperGuard(node, name);
   configureApproachShaping(node, name);
   configureDockOffset(node, name);
+  configureYawLock(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
@@ -175,6 +176,7 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
     if (!SimpleChargingDock::getRefinedPose(pose, id)) {
       return false;
     }
+    lockDockYaw(pose);
     // 도크 자세 도착 판정(isDocked)도 dock_pose_ 를 보므로 영점을 옮긴 자세를 같이 남긴다
     applyDockOffset(pose);
     dock_pose_ = pose;

@@ -87,6 +87,7 @@ geometry_msgs::msg::PoseStamped TetraChargingDock::getStagingPose(
 
   const double distance = stagingDistanceFor(estimate);
   const DockSample & dock = estimate.dock;
+  rememberStagingYaw(dock, frame);
   geometry_msgs::msg::PoseStamped staging;
   staging.header.frame_id = frame;
   staging.header.stamp = node_->now();
@@ -239,6 +240,7 @@ double TetraChargingDock::stagingDistanceFor(const TagDockEstimate & estimate)
   inputs.tag_ahead_of_dock = -(external_detection_translation_x_ + dock_offset_x_);
   inputs.tag_lateral = -(external_detection_translation_y_ + dock_offset_y_);
   inputs.tag_height = estimate.tag_height;
+  inputs.backward = std::cos(staging_yaw_offset_) < 0.0;
   inputs.tag_size = tag_size_;
   inputs.margin_px = tag_image_margin_;
   inputs.min_pixels = tag_min_pixels_;
@@ -276,7 +278,8 @@ bool TetraChargingDock::robotOnApproachLine(
     const double dy = robot.transform.translation.y - dock.y;
     const double front = -(std::cos(dock.yaw) * dx + std::sin(dock.yaw) * dy);
     const double lateral = -std::sin(dock.yaw) * dx + std::cos(dock.yaw) * dy;
-    const double heading = wrap(tf2::getYaw(robot.transform.rotation) - dock.yaw);
+    // 후진 도킹(M)은 staging_yaw_offset 이 pi 라 로봇이 도크 yaw 와 반대로 선다. staging 자세 heading 과 비교한다
+    const double heading = wrap(tf2::getYaw(robot.transform.rotation) - (dock.yaw + staging_yaw_offset_));
     if (front <= 0.0 || front > staging_distance + 0.05 ||
       std::abs(lateral) > tag_staging_skip_lateral_ || std::abs(heading) > tag_staging_skip_yaw_)
     {
