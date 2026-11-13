@@ -86,6 +86,11 @@ bool TetraChargingDock::searchForTag()
 // staging 때 yaw 를 못 구했으면 지금 구한 값으로 고정한다
 bool TetraChargingDock::confirmTagSeen(const std::string & frame)
 {
+  // 탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 예전처럼 확인 없이 바로 접근한다. 이 확인은 멈춘 채 표본 3 개와 정면 각도를
+  // 요구해, 꺼진 모델에서도 돌면 비스듬히 도착하거나 검출이 흔들릴 때 initial_perception_timeout 으로 도킹이 실패했다
+  if (!search_cmd_pub_ && !lock_dock_yaw_to_staging_) {
+    return true;
+  }
   if (tag_seen_this_docking_) {
     return true;
   }
