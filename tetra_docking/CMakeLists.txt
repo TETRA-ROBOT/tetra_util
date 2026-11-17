@@ -21,6 +21,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(apriltag_msgs REQUIRED)
 find_package(interfaces REQUIRED)
+find_package(angles REQUIRED)
 
 set(dependencies
   rclcpp
@@ -38,6 +39,7 @@ set(dependencies
   tf2_geometry_msgs
   apriltag_msgs
   interfaces
+  angles
 )
 
 include_directories(
@@ -54,6 +56,7 @@ add_library(tetra_docking_plugins SHARED
   src/dock_offset.cpp
   src/staging_yaw_lock.cpp
   src/tag_search.cpp
+  src/tag_search_plan.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})
@@ -85,6 +88,13 @@ install(DIRECTORY include/
 install(FILES opennav_docking_plugins.xml
   DESTINATION share/${PROJECT_NAME}
 )
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  # 계산만 하는 소스는 플러그인 라이브러리(도킹 서버·Nav2 에 묶임) 없이 따로 컴파일해 테스트한다
+  ament_add_gtest(test_tag_search_plan test/test_tag_search_plan.cpp src/tag_search_plan.cpp)
+  ament_target_dependencies(test_tag_search_plan angles)
+endif()
 
 ament_export_include_directories(include)
 ament_export_libraries(tetra_docking_plugins)

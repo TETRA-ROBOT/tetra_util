@@ -23,6 +23,7 @@
 #include "apriltag_msgs/msg/april_tag_detection_array.hpp"
 #include "interfaces/srv/toggle_on.hpp"
 #include "tetra_docking/tag_view.hpp"
+#include "tetra_docking/tag_search_plan.hpp"
 
 namespace tetra_docking
 {
@@ -96,10 +97,7 @@ protected:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr search_cmd_pub_;
   double tag_search_angle_{0.0};
   double tag_search_speed_{0.05};
-  bool tag_seen_this_docking_{true};
-  bool search_active_{false};
-  int search_step_{0};
-  double search_origin_yaw_{0.0};
+  TagSearchState tag_search_;
 
   // 도크 yaw 고정 (staging_yaw_lock.cpp)
   void configureYawLock(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
