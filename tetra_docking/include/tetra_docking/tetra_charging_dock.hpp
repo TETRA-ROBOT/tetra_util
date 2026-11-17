@@ -51,10 +51,13 @@ protected:
   void apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg);
   std::string tagFrameFor(const std::string & id) const;
   void updateDetectionFromTagTf(const std::string & id);
+  // 접근 중 도크 자세 (refined_pose.cpp)
+  bool refineFromTagDetection(geometry_msgs::msg::PoseStamped & pose, const std::string & id);
+  bool approachDetectedDock(geometry_msgs::msg::PoseStamped & pose, const std::string & id);
   bool getBlindApproachPose(geometry_msgs::msg::PoseStamped & pose);
   bool isTagCloseAhead();
 
-  // 태그 정렬 staging (tag_staging.cpp)
+  // 태그 정렬 staging (tag_staging.cpp), 태그 검출로 도크 자세 추정 (tag_dock_estimate.cpp)
   struct TagDockEstimate
   {
     DockSample dock;

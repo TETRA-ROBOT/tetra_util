@@ -57,6 +57,8 @@ add_library(tetra_docking_plugins SHARED
   src/staging_yaw_lock.cpp
   src/tag_search.cpp
   src/tag_search_plan.cpp
+  src/refined_pose.cpp
+  src/tag_dock_estimate.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})

@@ -32,8 +32,19 @@
      tag_staging_frame 을 odom 으로 두면 staging 을 odom 기준으로 낸다 (map 은 AMCL 보정에 흔들려 태그 축에서 벗어났다, M)
      tag_search_angle 이 0 보다 크면 staging 에서 태그가 안 보일 때 제자리에서 천천히 좌우로 돌며 찾고, 영상 중앙에 맞춘 뒤
      멈춘 채로 확인한다 (src/tag_search.cpp, M). 지나가며 스친 검출은 확인으로 보지 않는다
+     매 주기의 순서(가운데 맞추기 → 멈춰서 확인 → 못 보면 탐색 → 정밀 접근)는 src/refined_pose.cpp refineFromTagDetection 에 있다.
+     탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 확인 없이 바로 접근한다 (TagSearchState::needsConfirmation, 테스트로 고정)
      후진 도킹(M, staging_yaw_offset pi): bumper_mask 8(뒤)·undock_bumper_mask 1(앞), tag staging 의 축 판정·태그 시야 계산도 후진을 따른다
               │
               ▼
   [ 3단계: 충전 패드 접촉 및 충전 전류 감지 ] (tetra_power_driver)
 ```
+
+## tetra_docking 소스와 테스트
+
+- 계산만 하는 코드는 ROS 없이 테스트한다: `src/tag_search_plan.cpp`(탐색 단계·가운데 맞추기·탐색 상태),
+  `include/tetra_docking/dock_geometry.hpp`(태그 → 도크 오프셋 회전), `src/tag_view.cpp`(영상 투영·표본 평균).
+  `colcon test --packages-select tetra_docking` (`test/`, ament_cmake_gtest).
+- 로봇에 명령을 내거나 TF 를 읽는 쪽은 `tag_search.cpp`, `refined_pose.cpp`, `tag_dock_estimate.cpp`, `tag_staging.cpp` 다.
+  새 계산을 넣을 때는 위 순수 함수 쪽에 두고 테스트를 붙인다.
+- 각도 차이는 `angles::normalize_angle` 로 구한다 (파일마다 따로 만들지 않는다).
