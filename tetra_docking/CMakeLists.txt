@@ -94,6 +94,8 @@ if(BUILD_TESTING)
   # 계산만 하는 소스는 플러그인 라이브러리(도킹 서버·Nav2 에 묶임) 없이 따로 컴파일해 테스트한다
   ament_add_gtest(test_tag_search_plan test/test_tag_search_plan.cpp src/tag_search_plan.cpp)
   ament_target_dependencies(test_tag_search_plan angles)
+  ament_add_gtest(test_dock_geometry test/test_dock_geometry.cpp src/tag_view.cpp)
+  ament_target_dependencies(test_dock_geometry angles tf2)
 endif()
 
 ament_export_include_directories(include)

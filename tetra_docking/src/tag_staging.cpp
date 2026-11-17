@@ -4,6 +4,8 @@
 // (SM 은 RGB 센서가 중심에서 옆으로 치우쳐 더 일찍 놓쳤다).
 #include "tetra_docking/tetra_charging_dock.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "angles/angles.h"
+#include "tetra_docking/dock_geometry.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -14,11 +16,6 @@ namespace tetra_docking
 
 namespace
 {
-double wrap(double angle)
-{
-  return std::atan2(std::sin(angle), std::cos(angle));
-}
-
 // 표본끼리 이만큼 넘게 다르면 태그 자세가 흔들리는 것으로 보고 쓰지 않는다
 constexpr double kMaxSampleSpreadXy = 0.08;
 constexpr double kMaxSampleSpreadYaw = 0.12;
@@ -223,10 +220,11 @@ DockSample TetraChargingDock::dockSampleFromTag(const geometry_msgs::msg::Transf
   const double yaw = tf2::getYaw(tag_rotation * external_detection_rotation_);
   DockSample sample;
   sample.yaw = yaw;
-  sample.x = fixed_to_tag.translation.x + std::cos(yaw) * external_detection_translation_x_ -
-    std::sin(yaw) * external_detection_translation_y_;
-  sample.y = fixed_to_tag.translation.y + std::sin(yaw) * external_detection_translation_x_ +
-    std::cos(yaw) * external_detection_translation_y_;
+  const PlanarOffset dock = dockPositionFromTag(
+    fixed_to_tag.translation.x, fixed_to_tag.translation.y, yaw,
+    external_detection_translation_x_, external_detection_translation_y_);
+  sample.x = dock.x;
+  sample.y = dock.y;
   // staging 축도 접근 중 도크 자세와 같은 영점을 써야 마지막 구간에서 옆으로 꺾지 않는다
   return applyDockOffset(sample);
 }
@@ -290,7 +288,8 @@ bool TetraChargingDock::robotOnApproachLine(
     const double front = -(std::cos(dock.yaw) * dx + std::sin(dock.yaw) * dy);
     const double lateral = -std::sin(dock.yaw) * dx + std::cos(dock.yaw) * dy;
     // 후진 도킹(M)은 staging_yaw_offset 이 pi 라 로봇이 도크 yaw 와 반대로 선다. staging 자세 heading 과 비교한다
-    const double heading = wrap(tf2::getYaw(robot.transform.rotation) - (dock.yaw + staging_yaw_offset_));
+    const double heading = angles::normalize_angle(
+      tf2::getYaw(robot.transform.rotation) - (dock.yaw + staging_yaw_offset_));
     if (front <= 0.0 || front > staging_distance + 0.05 ||
       std::abs(lateral) > tag_staging_skip_lateral_ || std::abs(heading) > tag_staging_skip_yaw_)
     {

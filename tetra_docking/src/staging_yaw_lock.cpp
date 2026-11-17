@@ -4,6 +4,7 @@
 // yaw 가 15 도 틀리면 목표가 옆으로 24 cm 움직여 제어기가 쫓아가며 돌다가 태그를 시야 밖으로 놓쳤다 (실기 M 2026-11-10).
 #include "tetra_docking/tetra_charging_dock.hpp"
 #include "nav2_util/node_utils.hpp"
+#include "tetra_docking/dock_geometry.hpp"
 
 #include <cmath>
 
@@ -59,10 +60,11 @@ void TetraChargingDock::lockDockYaw(geometry_msgs::msg::PoseStamped & pose)
   const double measured = tf2::getYaw(pose.pose.orientation);
   const double tx = external_detection_translation_x_;
   const double ty = external_detection_translation_y_;
-  const double tag_x = pose.pose.position.x - (std::cos(measured) * tx - std::sin(measured) * ty);
-  const double tag_y = pose.pose.position.y - (std::sin(measured) * tx + std::cos(measured) * ty);
-  pose.pose.position.x = tag_x + std::cos(locked) * tx - std::sin(locked) * ty;
-  pose.pose.position.y = tag_y + std::sin(locked) * tx + std::cos(locked) * ty;
+  // 잰 yaw 로 붙인 오프셋을 떼어 태그 위치로 돌아간 뒤, 고정 yaw 로 다시 붙인다
+  const PlanarOffset tag = tagPositionFromDock(pose.pose.position.x, pose.pose.position.y, measured, tx, ty);
+  const PlanarOffset dock = dockPositionFromTag(tag.x, tag.y, locked, tx, ty);
+  pose.pose.position.x = dock.x;
+  pose.pose.position.y = dock.y;
   tf2::Quaternion orientation;
   orientation.setRPY(0.0, 0.0, locked);
   pose.pose.orientation = tf2::toMsg(orientation);

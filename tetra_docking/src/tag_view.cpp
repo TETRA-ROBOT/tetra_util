@@ -4,17 +4,14 @@
 #include <cmath>
 #include <limits>
 
+#include "angles/angles.h"
+
 namespace tetra_docking
 {
 
 namespace
 {
 constexpr double kDistanceStep = 0.05;
-
-double wrapAngle(double angle)
-{
-  return std::atan2(std::sin(angle), std::cos(angle));
-}
 }  // namespace
 
 TagView projectTagAtStaging(const StagingViewInputs & inputs, double staging_distance)
@@ -92,7 +89,7 @@ bool averageDockSamples(
   mean.yaw = std::atan2(sum_sin, sum_cos);
   for (const auto & sample : samples) {
     if (std::hypot(sample.x - mean.x, sample.y - mean.y) > max_xy ||
-      std::abs(wrapAngle(sample.yaw - mean.yaw)) > max_yaw)
+      std::abs(angles::normalize_angle(sample.yaw - mean.yaw)) > max_yaw)
     {
       return false;
     }
