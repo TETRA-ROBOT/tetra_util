@@ -35,7 +35,8 @@ class CalibratorNode(Node):
         image_topic = self.declare_parameter('image_topic', '/camera/image_raw').value
         info_topic = self.declare_parameter('camera_info_topic', '/camera/camera_info').value
         set_info_service = self.declare_parameter('set_camera_info_service', '/camera/set_camera_info').value
-        self.persistent_dir = self.declare_parameter('persistent_dir', '/home/tetra/tetra_integration/persistent').value
+        # 관제 API 는 이 파라미터를 직접 넘긴다. 손으로 띄울 때는 환경 변수 PERSISTENT_DIR, 그것도 없으면 기본 경로
+        self.persistent_dir = self.declare_parameter('persistent_dir', camera_info_io.default_persistent_dir()).value
         self.default_info_path = self.declare_parameter('default_camera_info', '').value or default_camera_info_path()
         port = int(self.declare_parameter('http_port', 8091).value)
         self.period = 1.0 / float(self.declare_parameter('process_rate', 5.0).value)

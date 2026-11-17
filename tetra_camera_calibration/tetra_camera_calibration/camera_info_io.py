@@ -9,6 +9,14 @@ from sensor_msgs.msg import CameraInfo
 from .board import CalibrationResult
 
 IDENTITY_3X3 = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+# 로봇별 저장소. 실행 스크립트(start_real_robot.sh)와 관제 API 가 환경 변수 PERSISTENT_DIR 로 정한다.
+# 변수가 없을 때만 이 기본값을 쓴다 (후면 카메라 런치 tetra_bringup/launch/usb_camera.launch.py 와 같은 규칙)
+DEFAULT_PERSISTENT_DIR = '/home/tetra/tetra_integration/persistent'
+
+
+def default_persistent_dir() -> str:
+    """persistent_dir 파라미터를 주지 않았을 때 쓸 로봇별 저장소 경로."""
+    return os.environ.get('PERSISTENT_DIR') or DEFAULT_PERSISTENT_DIR
 
 
 def result_to_camera_info(result: CalibrationResult, frame_id: str) -> CameraInfo:
