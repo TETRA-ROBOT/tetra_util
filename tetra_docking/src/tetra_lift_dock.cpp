@@ -32,7 +32,7 @@ void TetraLiftDock::configure(
   nav2_util::declare_parameter_if_not_declared(
     node, name + ".camera_frame", rclcpp::ParameterValue("camera"));
   nav2_util::declare_parameter_if_not_declared(
-    node, name + ".lift_action_mode", rclcpp::ParameterValue(1)); // 1: LOAD (UP), 0: UNLOAD (DOWN)
+    node, name + ".lift_action_mode", rclcpp::ParameterValue(1)); // 보드 CN 코드: 1 싣기(올림), 0 내리기(내림), H 는 2 최대 높이
 
   node->get_parameter(name + ".marker_family", marker_family_);
   node->get_parameter(name + ".camera_frame", camera_frame_);
@@ -46,12 +46,12 @@ void TetraLiftDock::configure(
     "detections", 10,
     std::bind(&TetraLiftDock::apriltagCallback, this, std::placeholders::_1));
 
-  toggle_on_client_ = node->create_client<interfaces::srv::ToggleOn>("turn_on_cmd");
+  lift_client_ = node->create_client<interfaces::srv::ConveyorAutoMovement>("conveyor_auto_move_cmd");
 
   RCLCPP_INFO(
     node_->get_logger(),
-    "Configured TetraLiftDock plugin: family=%s, lift_mode=%s",
-    marker_family_.c_str(), lift_action_mode_ == 1 ? "LOAD (UP)" : "UNLOAD (DOWN)");
+    "Configured TetraLiftDock plugin: family=%s, lift CN code=%d",
+    marker_family_.c_str(), lift_action_mode_);
 }
 
 void TetraLiftDock::conveyorSensorCallback(const std_msgs::msg::Int32::SharedPtr msg)
@@ -107,17 +107,14 @@ bool TetraLiftDock::isDocked()
 bool TetraLiftDock::executeLiftAction()
 {
   // 서비스가 아직 없으면 실행한 것으로 치지 않아 다음 isDocked 호출에서 다시 시도한다
-  if (!toggle_on_client_->service_is_ready()) {
+  if (!lift_client_->service_is_ready()) {
     RCLCPP_WARN(node_->get_logger(), "Lift service not ready; will retry");
     return false;
   }
-  auto req = std::make_shared<interfaces::srv::ToggleOn::Request>();
-  req->id = lift_action_mode_;
-  toggle_on_client_->async_send_request(req);
-  RCLCPP_INFO(
-    node_->get_logger(),
-    "Executed lift action: mode=%d (%s)",
-    lift_action_mode_, lift_action_mode_ == 1 ? "UP" : "DOWN");
+  auto req = std::make_shared<interfaces::srv::ConveyorAutoMovement::Request>();
+  req->start = lift_action_mode_;
+  lift_client_->async_send_request(req);
+  RCLCPP_INFO(node_->get_logger(), "Executed lift action: CN%d", lift_action_mode_);
   return true;
 }
 
