@@ -26,6 +26,10 @@
      heading_priority_near/far 가 켜져 있으면 도크 바로 앞에서는 도크와 나란히 곧게 들어간다 (src/approach_shaping.cpp)
      bumper_topic 이 켜져 있으면 접점 없이 앞 범퍼가 bumper_grace 넘게 눌릴 때 905 로 멈춘다 (src/bumper_guard.cpp)
      dock_offset_x/_y/_yaw (관제 관리자 설정 '도킹 영점', 도킹 직전에 API 가 넣음) 로 태그 기준 도크 자세를 로봇마다 옮긴다 (src/dock_offset.cpp)
+     접근 속도는 플러그인이 아니라 docking_server 의 opennav_docking Controller(graceful)가 정한다. 관제가 도킹 목표 직전에 controller.v_linear_max /
+     v_linear_min / slowdown_radius 를 관리자 설정 '도킹 속도'·'감속 시작 거리'로 넣어 도크 앞에서 남은 거리에 비례해 줄인다 (TetraSingleManagement dock-speed.ts).
+     플러그인에서 도킹 중에 이 파라미터를 바꾸면 안 된다: Jazzy 도킹 서버는 도킹 내내 서버 mutex 를 잡고 파라미터 콜백도 그 mutex 를 기다려 도킹이 멈춘다 (2026-11-18 확인).
+     태그를 놓친 뒤 마지막 자세로 들어가는 구간도 같은 제어기·같은 거리라 속도가 끊기지 않는다
      docked_by_depth 가 켜져 있으면 도크 축 깊이만으로 도착을 판정한다 (좌우 잔여 오차로 판정 폭을 못 맞추는 것 방지)
      undock_bumper_mask 가 켜져 있으면 언도킹 후진 중 그 범퍼 비트가 눌리면 멈춘다 (MH 뒤 범퍼 0x08)
      lock_dock_yaw_to_staging 이 켜져 있으면 접근 중에는 태그 위치만 쓰고 yaw 는 staging 때 멈춰서 평균한 값으로 고정한다 (src/staging_yaw_lock.cpp, M)
