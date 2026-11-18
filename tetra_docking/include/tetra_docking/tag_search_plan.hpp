@@ -83,7 +83,7 @@ public:
 
   /**
    * 접근 전에 멈춰서 태그를 확인해야 하는가.
-   * 탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 예전처럼 확인 없이 바로 접근한다. 이 확인은 멈춘 채 표본 3 개와 정면 각도를
+   * 탐색도 yaw 고정도 끈 설정은 예전처럼 확인 없이 바로 접근한다. 이 확인은 멈춘 채 표본 3 개와 정면 각도를
    * 요구해, 꺼진 모델에서도 돌면 비스듬히 도착하거나 검출이 흔들릴 때 initial_perception_timeout 으로 도킹이 실패했다
    * @param search_enabled 태그 탐색을 켰는가 (tag_search_angle > 0)
    * @param yaw_lock_enabled 도크 yaw 고정을 켰는가 (lock_dock_yaw_to_staging)

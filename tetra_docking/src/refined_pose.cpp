@@ -60,7 +60,7 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
 //   2) 멈춘 채로 확인한다. 아직이면 좌우로 돌며 찾는다             -> 이번 주기는 자세 없음
 //   3) 확인했으면 검출 자세로 정밀 접근한다
 // 태그가 안 보일 때는 도크 바로 앞이면 마지막 자세로 마저 들어가고, 아직 본 적이 없으면 돌며 찾는다.
-// 1)·2) 는 태그 탐색이나 yaw 고정을 켠 모델(M)만 거친다. 끈 모델(EDU, MH, SM)은 바로 3) 으로 간다
+// 1)·2) 는 태그 탐색이나 yaw 고정을 켠 설정만 거친다 (2026-11-18 부터 M·MH·EDU·SM 탐색 켬). 둘 다 끄면 바로 3) 으로 간다
 bool TetraChargingDock::refineFromTagDetection(geometry_msgs::msg::PoseStamped & pose, const std::string & id)
 {
   updateDetectionFromTagTf(id);

@@ -19,7 +19,7 @@ const char kSearchYawFrame[] = "odom";
 void TetraChargingDock::configureTagSearch(
   const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name)
 {
-  // 0 이면 끈다 (EDU, MH, SM). 탐색은 시작 방향 기준 +각도 -> -각도 -> 시작 방향 순서로 돈다
+  // 0 이면 끈다 (2026-11-18 부터 M·MH·EDU·SM 모두 켬, navigation_*.yaml). 탐색은 시작 방향 기준 +각도 -> -각도 -> 시작 방향 순서로 돈다
   nav2_util::declare_parameter_if_not_declared(node, name + ".tag_search_angle", rclcpp::ParameterValue(0.0));
   // 어두우면 노출이 길어 빨리 돌면 영상이 번져 태그를 못 읽는다 (M 0.05 rad/s 에서 매 프레임 검출)
   nav2_util::declare_parameter_if_not_declared(node, name + ".tag_search_speed", rclcpp::ParameterValue(0.05));
@@ -72,7 +72,7 @@ bool TetraChargingDock::searchForTag()
 // staging 때 yaw 를 못 구했으면 지금 구한 값으로 고정한다
 bool TetraChargingDock::confirmTagSeen(const std::string & frame)
 {
-  // 탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 예전처럼 확인 없이 바로 접근한다 (TagSearchState::needsConfirmation)
+  // 탐색도 yaw 고정도 끈 설정은 예전처럼 확인 없이 바로 접근한다 (TagSearchState::needsConfirmation)
   if (!tag_search_.needsConfirmation(search_cmd_pub_ != nullptr, lock_dock_yaw_to_staging_)) {
     return true;
   }
