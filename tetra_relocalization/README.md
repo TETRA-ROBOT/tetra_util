@@ -1,7 +1,8 @@
 # tetra_relocalization
 
 AMCL 이 위치를 잃으면 라이다 스캔을 지도에 맞춰 찾은 자세로 `/initialpose` 를 보내 스스로 바로잡는다.
-`tetra_navigation_m.launch.py` 가 띄운다 (`auto_relocalize:=false` 로 끈다).
+AMCL 을 쓰는 모든 모델(M, H, EDU, MH, S, SM)의 `tetra_navigation_*.launch.py` 가 `tetra_navigation2/launch/auto_relocalization_launch.py` 로 띄운다
+(`auto_relocalize:=false` 로 끈다). `scan_topic` 은 AMCL 과 같아야 한다 (H·MH 는 `scan_merge`). 3D(rtabmap)·지도 없는 주행에는 AMCL 이 없어 띄우지 않는다.
 
 ## 왜 AMCL 의 복구 기능을 쓰지 않나
 
@@ -23,7 +24,7 @@ AMCL 의 무작위 파티클 주입(`recovery_alpha_fast/slow`)은 사람이 지
 - 빨리 돌거나 달릴 때(`max_angular_speed` 0.4 rad/s, `max_linear_speed` 0.8 m/s)는 스캔이 휘므로 재지 않는다.
 - `apply:=false` 면 찾기만 하고 바로잡지 않는다 (현장 시험용).
 
-## 실측 (M, 2026-11-19)
+## 실측 (M, 2026-11-19. 다른 모델은 아직 실기 확인 전)
 
 42 시간 운행 뒤 AMCL 자세가 0.25 m·10~12° 틀어져 일치율 23% 였다. 노드가 일치율 89% 자세를 찾아(다른 후보 46%) 바로잡았고,
 AMCL 표준편차가 2.1 m·59° 에서 8 cm·2.3° 로, 일치율이 88% 로 돌아왔다. 맞는 자세에서 강제로 찾게 하면 `no_gain` 으로 손대지 않았다.
