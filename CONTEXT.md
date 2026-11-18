@@ -9,6 +9,7 @@
 |---|---|---|
 | `tetra_docking` | OpenNav 기반 2단계 자동 충전 도킹 (AR 태그/레이저 라인 감지 -> 충전 패드 진입) | Action: `/docking_control`<br>Topic: `/docking_status` |
 | `tetra_camera_calibration` | 웹관제 관리자 화면의 카메라 캘리브레이션 계산 노드 (체커보드 → set_camera_info). 화면을 열 때만 API 가 띄운다 | 로컬 HTTP 127.0.0.1:8091, Service client: `/camera/set_camera_info` |
+| `tetra_relocalization` | AMCL 이 위치를 잃으면 스캔을 지도에 맞춰 찾은 자세로 바로잡는다 (M 내비게이션 런치가 띄움). 근거·문턱값은 패키지 README | Pub: `/initialpose`, `~/scan_match_ratio`, `~/event`<br>Srv client: `/request_nomotion_update`, `/amcl/get_state` |
 | `etc` | 맵핑, 데이터 변환 및 레거시 유틸리티 스크립트 | Bash/Python 스크립트 |
 
 ## 도킹 시퀀스 다이어그램
