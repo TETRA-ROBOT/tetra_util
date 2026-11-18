@@ -107,35 +107,49 @@ bool TetraChargingDock::approachDetectedDock(geometry_msgs::msg::PoseStamped & p
   return true;
 }
 
-// 태그를 놓친 뒤 마지막 검출 도크 자세로 마저 들어갈지 판단한다. 놓친 지 오래됐거나(이전 도킹의 값),
-// 남은 거리가 blind_approach_distance 보다 길면 거부해 검출 실패로 멈추게 한다
+// 태그를 놓친 뒤 마지막 검출 도크 자세(odom)로 계속 갈지 판단한다 (decideLostTag).
+// 가까우면 마저 들어가고(blind), 조금 멀면 그쪽으로 몰아 태그를 다시 찾고(reacquire), 아니면 거부해 검출 실패로 멈춘다
 bool TetraChargingDock::getBlindApproachPose(geometry_msgs::msg::PoseStamped & pose)
 {
-  if (blind_approach_distance_ <= 0.0 || last_detected_dock_pose_.header.frame_id.empty()) {
+  if (last_detected_dock_pose_.header.frame_id.empty() ||
+    (blind_approach_distance_ <= 0.0 && lost_tag_reacquire_distance_ <= 0.0))
+  {
     return false;
   }
-  if (node_->now() - last_detection_time_ > rclcpp::Duration::from_seconds(blind_approach_timeout_)) {
-    return false;
-  }
+  double remaining = 0.0;
   try {
     auto robot = tf2_buffer_->lookupTransform(
       last_detected_dock_pose_.header.frame_id, base_frame_id_, tf2::TimePointZero);
-    const double dx = last_detected_dock_pose_.pose.position.x - robot.transform.translation.x;
-    const double dy = last_detected_dock_pose_.pose.position.y - robot.transform.translation.y;
-    const double remaining = std::hypot(dx, dy);
-    if (remaining > blind_approach_distance_) {
-      RCLCPP_WARN_THROTTLE(
-        node_->get_logger(), *node_->get_clock(), 1000,
-        "Dock tag lost %.2f m before the dock pose (blind limit %.2f m)", remaining,
-        blind_approach_distance_);
-      return false;
-    }
-    RCLCPP_INFO_THROTTLE(
-      node_->get_logger(), *node_->get_clock(), 1000,
-      "Dock tag out of view, finishing the last %.2f m on odometry", remaining);
+    remaining = std::hypot(
+      last_detected_dock_pose_.pose.position.x - robot.transform.translation.x,
+      last_detected_dock_pose_.pose.position.y - robot.transform.translation.y);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(node_->get_logger(), "Blind approach pose lookup failed: %s", ex.what());
     return false;
+  }
+  const double since_detection = (node_->now() - last_detection_time_).seconds();
+  switch (decideLostTag(
+      remaining, since_detection, blind_approach_distance_, blind_approach_timeout_,
+      lost_tag_reacquire_distance_, lost_tag_reacquire_time_))
+  {
+    case LostTagAction::kBlind:
+      RCLCPP_INFO_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 1000,
+        "Dock tag out of view, finishing the last %.2f m on odometry", remaining);
+      break;
+    case LostTagAction::kReacquire:
+      RCLCPP_INFO_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 1000,
+        "Dock tag lost %.2f m before the dock, turning toward its last position to find it again (%.1f s)",
+        remaining, since_detection);
+      break;
+    case LostTagAction::kFail:
+    default:
+      RCLCPP_WARN_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 1000,
+        "Dock tag lost %.2f m before the dock pose (blind limit %.2f m, reacquire %.2f m within %.1f s)",
+        remaining, blind_approach_distance_, lost_tag_reacquire_distance_, lost_tag_reacquire_time_);
+      return false;
   }
   pose = last_detected_dock_pose_;
   return true;

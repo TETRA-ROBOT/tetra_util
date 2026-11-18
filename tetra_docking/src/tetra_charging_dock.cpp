@@ -75,6 +75,12 @@ void TetraChargingDock::configure(
     node, name + ".blind_approach_distance", rclcpp::ParameterValue(0.0));
   nav2_util::declare_parameter_if_not_declared(
     node, name + ".blind_approach_timeout", rclcpp::ParameterValue(8.0));
+  // 접근 중 비스듬히 들어가다 태그를 놓치면 blind 거리보다 멀어도 마지막 검출 자세 쪽으로 몰아 다시 찾는다.
+  // 0 이면 끈다 (예전처럼 바로 검출 실패). 실기 MH 2026-11-18: 도크 0.53 m 앞에서 놓쳐 904 로 실패
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".lost_tag_reacquire_distance", rclcpp::ParameterValue(0.0));
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".lost_tag_reacquire_time", rclcpp::ParameterValue(3.0));
   // 언도킹 전용 인스턴스: 접점이 없어도 카메라 정면 이 거리 안에 태그가 보이면 도크에 붙은 것으로 보고
   // UndockRobot 이 staging_x_offset 만큼 후진하게 한다. 0 이면 끈다 (도킹용 인스턴스는 0 이어야 한다)
   nav2_util::declare_parameter_if_not_declared(
@@ -90,6 +96,8 @@ void TetraChargingDock::configure(
   node->get_parameter(name + ".charge_requires_contact", charge_requires_contact_);
   node->get_parameter(name + ".blind_approach_distance", blind_approach_distance_);
   node->get_parameter(name + ".blind_approach_timeout", blind_approach_timeout_);
+  node->get_parameter(name + ".lost_tag_reacquire_distance", lost_tag_reacquire_distance_);
+  node->get_parameter(name + ".lost_tag_reacquire_time", lost_tag_reacquire_time_);
   node->get_parameter(name + ".undock_tag_distance", undock_tag_distance_);
   node->get_parameter(name + ".undock_tag_lateral", undock_tag_lateral_);
 

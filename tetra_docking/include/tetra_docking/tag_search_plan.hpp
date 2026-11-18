@@ -39,6 +39,27 @@ SearchStepCommand planSearchStep(double yaw, double origin_yaw, int step, double
  */
 std::optional<double> centeringVelocity(double tag_x, double tag_forward, double search_speed);
 
+// 접근 중 태그를 놓쳤을 때 할 일
+enum class LostTagAction
+{
+  kFail,       // 검출 실패로 멈춘다 (도킹 서버가 재시도하거나 실패로 끝낸다)
+  kBlind,      // 도크가 가까워 마지막 검출 자세(odom)로 마저 들어간다
+  kReacquire,  // 마지막 검출 자세 쪽으로 계속 몰아 태그가 다시 시야에 들어오게 한다 (돌아서 다시 찾기)
+};
+
+/**
+ * 접근 중 태그를 놓쳤을 때 할 일을 고른다 (ROS 없이 계산만 한다)
+ * @param remaining 마지막 검출 도크 자세까지 남은 거리 (m)
+ * @param since_detection 마지막 검출 뒤 지난 시간 (s)
+ * @param blind_distance 이 거리 안이면 마저 들어간다 (0 이면 끔)
+ * @param blind_timeout 마지막 검출이 이보다 오래되면 어떤 것도 하지 않는다 (예전 도킹의 값)
+ * @param reacquire_distance 이 거리 안에서 놓치면 다시 찾는다 (0 이면 끔)
+ * @param reacquire_time 놓친 뒤 이 시간 안에 다시 보여야 한다 (s)
+ */
+LostTagAction decideLostTag(
+  double remaining, double since_detection, double blind_distance, double blind_timeout,
+  double reacquire_distance, double reacquire_time);
+
 /**
  * 도킹 한 번 동안의 태그 탐색 상태. 도킹 액션 스레드에서만 읽고 쓴다
  */

@@ -138,6 +138,10 @@ protected:
   bool charge_requires_contact_;
   double blind_approach_distance_;
   double blind_approach_timeout_;
+  // 접근 중 태그를 놓치면 이 거리 안에서는 마지막 검출 자세 쪽으로 몰아 다시 찾는다 (0 이면 끔)
+  double lost_tag_reacquire_distance_{0.0};
+  // 놓친 뒤 이 시간 안에 다시 보이지 않으면 검출 실패로 멈춘다 (s)
+  double lost_tag_reacquire_time_{3.0};
   double undock_tag_distance_;
   double undock_tag_lateral_;
   geometry_msgs::msg::PoseStamped last_detected_dock_pose_;

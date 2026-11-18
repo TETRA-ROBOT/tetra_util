@@ -62,4 +62,22 @@ bool TagSearchState::needsConfirmation(bool search_enabled, bool yaw_lock_enable
   return !seen_;
 }
 
+LostTagAction decideLostTag(
+  double remaining, double since_detection, double blind_distance, double blind_timeout,
+  double reacquire_distance, double reacquire_time)
+{
+  if (since_detection > blind_timeout) {
+    return LostTagAction::kFail;
+  }
+  if (blind_distance > 0.0 && remaining <= blind_distance) {
+    return LostTagAction::kBlind;
+  }
+  // 비스듬히 접근하다 태그가 화면 옆으로 빠진 경우: 마지막 자세(odom)는 놓치기 직전의 실제 도크라 그쪽으로 몰면
+  // 제어기가 방향을 틀어 태그가 다시 들어온다. 오래 못 찾으면 안 보이는 채로 멀리 가지 않게 멈춘다
+  if (reacquire_distance > 0.0 && remaining <= reacquire_distance && since_detection <= reacquire_time) {
+    return LostTagAction::kReacquire;
+  }
+  return LostTagAction::kFail;
+}
+
 }  // namespace tetra_docking

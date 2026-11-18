@@ -11,6 +11,8 @@ using tetra_docking::kCenteredBearing;
 using tetra_docking::kSearchAngleTolerance;
 using tetra_docking::kSearchStepCount;
 using tetra_docking::planSearchStep;
+using tetra_docking::decideLostTag;
+using tetra_docking::LostTagAction;
 
 namespace
 {
@@ -216,4 +218,31 @@ TEST(TagSearchState, SeeingTheTagEndsTheSearchButKeepsTheSweepProgress)
   EXPECT_TRUE(state.seen());
   EXPECT_FALSE(state.active());
   EXPECT_EQ(state.step(), 1);
+}
+
+// 접근 중 태그를 놓쳤을 때 (실기 MH 2026-11-18: 도크 0.53 m 앞에서 놓쳐 904)
+TEST(DecideLostTag, FinishesBlindWhenCloseEnough)
+{
+  EXPECT_EQ(decideLostTag(0.20, 0.5, 0.25, 8.0, 1.0, 4.0), LostTagAction::kBlind);
+}
+
+TEST(DecideLostTag, TurnsTowardTheLastTagWhenLostFartherOut)
+{
+  EXPECT_EQ(decideLostTag(0.53, 0.5, 0.25, 8.0, 1.0, 4.0), LostTagAction::kReacquire);
+}
+
+TEST(DecideLostTag, GivesUpWhenTheTagStaysHidden)
+{
+  EXPECT_EQ(decideLostTag(0.53, 4.5, 0.25, 8.0, 1.0, 4.0), LostTagAction::kFail);
+}
+
+TEST(DecideLostTag, DoesNotDriveBlindFromFarAway)
+{
+  EXPECT_EQ(decideLostTag(1.4, 0.5, 0.25, 8.0, 1.0, 4.0), LostTagAction::kFail);
+}
+
+TEST(DecideLostTag, KeepsTheOldBehaviourWhenReacquireIsOff)
+{
+  EXPECT_EQ(decideLostTag(0.53, 0.5, 0.25, 8.0, 0.0, 4.0), LostTagAction::kFail);
+  EXPECT_EQ(decideLostTag(0.20, 9.0, 0.25, 8.0, 1.0, 4.0), LostTagAction::kFail);
 }
