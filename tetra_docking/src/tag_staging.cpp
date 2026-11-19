@@ -5,6 +5,7 @@
 #include "tetra_docking/tetra_charging_dock.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "angles/angles.h"
+#include "tetra_docking/tag_search_plan.hpp"
 
 #include <cmath>
 #include <algorithm>
@@ -182,14 +183,18 @@ bool TetraChargingDock::robotOnApproachLine(
     auto robot = tf2_buffer_->lookupTransform(frame, base_frame_id_, tf2::TimePointZero);
     const double dx = robot.transform.translation.x - dock.x;
     const double dy = robot.transform.translation.y - dock.y;
-    const double front = -(std::cos(dock.yaw) * dx + std::sin(dock.yaw) * dy);
-    const double lateral = -std::sin(dock.yaw) * dx + std::cos(dock.yaw) * dy;
+    ApproachLineOffset offset;
+    offset.front = -(std::cos(dock.yaw) * dx + std::sin(dock.yaw) * dy);
+    offset.lateral = -std::sin(dock.yaw) * dx + std::cos(dock.yaw) * dy;
     // 후진 도킹(M)은 staging_yaw_offset 이 pi 라 로봇이 도크 yaw 와 반대로 선다. staging 자세 heading 과 비교한다
-    const double heading = angles::normalize_angle(
+    offset.heading = angles::normalize_angle(
       tf2::getYaw(robot.transform.rotation) - (dock.yaw + staging_yaw_offset_));
-    if (front <= 0.0 || front > staging_distance + 0.05 ||
-      std::abs(lateral) > tag_staging_skip_lateral_ || std::abs(heading) > tag_staging_skip_yaw_)
-    {
+    const bool on_axis = offset.front > 0.0 && offset.front <= staging_distance + 0.05 &&
+      std::abs(offset.lateral) <= tag_staging_skip_lateral_ && std::abs(offset.heading) <= tag_staging_skip_yaw_;
+    // 재시도는 접근 전 가운데 맞추기·탐색이 다시 돌므로 탐색 각도 안의 heading 이면 된다
+    const bool retry_here = !on_axis && isRetryingApproach() &&
+      canRetryInPlace(offset, staging_distance, std::max(tag_search_angle_, tag_staging_skip_yaw_));
+    if (!on_axis && !retry_here) {
       return false;
     }
     robot_pose.header.frame_id = frame;
@@ -198,13 +203,23 @@ bool TetraChargingDock::robotOnApproachLine(
     robot_pose.pose.position.y = robot.transform.translation.y;
     robot_pose.pose.orientation = robot.transform.rotation;
     RCLCPP_INFO(
-      node_->get_logger(), "Tag staging: already on the dock axis (%.2f m ahead, %.3f m off, %.3f rad), "
-      "approaching from here", front, lateral, heading);
+      node_->get_logger(), "Tag staging: %s (%.2f m ahead, %.3f m off, %.3f rad), approaching from here",
+      on_axis ? "already on the dock axis" : "retrying next to the staging pose",
+      offset.front, offset.lateral, offset.heading);
     return true;
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(node_->get_logger(), "Tag staging: robot pose unavailable (%s)", ex.what());
     return false;
   }
+}
+
+bool TetraChargingDock::isRetryingApproach()
+{
+  constexpr double kRetryWindow = 1.0;  // s. 실패 예외 → resetApproach 는 같은 제어 주기 안에서 일어난다
+  if (last_refine_time_.nanoseconds() == 0) {
+    return false;
+  }
+  return (node_->now() - last_refine_time_).seconds() < kRetryWindow;
 }
 
 }  // namespace tetra_docking

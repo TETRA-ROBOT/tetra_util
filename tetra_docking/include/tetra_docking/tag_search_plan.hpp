@@ -60,6 +60,28 @@ LostTagAction decideLostTag(
   double remaining, double since_detection, double blind_distance, double blind_timeout,
   double reacquire_distance, double reacquire_time);
 
+// 재시도 때 staging 으로 되돌아가지 않고 제자리에서 다시 접근하는 범위.
+// 로봇이 staging 보다 도크에서 조금 멀면 staging 이 로봇 바로 뒤(도크 쪽)에 잡히는데, Jazzy 는 staging 복귀를 전진으로만 해
+// 반 바퀴를 돌아야 했고 v_angular_max 0.06 rad/s 로는 dock_approach_timeout(30 s) 안에 못 끝냈다 (M 실기 2026-11-19)
+constexpr double kRetryInPlaceBeyondStaging = 0.15;
+constexpr double kRetryInPlaceLateral = 0.10;
+
+/** 로봇이 도크 축에서 얼마나 벗어나 있는가 (staging 자세 기준) */
+struct ApproachLineOffset
+{
+  double front{0.0};    // 도크 자세에서 축을 따라 로봇까지 (m, 도크 앞이 +)
+  double lateral{0.0};  // 축에서 옆으로 (m)
+  double heading{0.0};  // staging 자세 heading 과의 차 (rad)
+};
+
+/**
+ * 재시도 때 지금 자리에서 바로 다시 접근해도 되는가 (ROS 없이 계산만 한다).
+ * staging 보다 도크에 가까우면 staging 이 앞(전진 방향)이라 Jazzy 복귀가 잘 되므로 그대로 물러나게 둔다
+ * @param staging_distance 도크 자세에서 staging 까지 (m)
+ * @param heading_limit 이 각도 안이면 접근 전 가운데 맞추기·탐색으로 태그를 다시 잡는다 (rad)
+ */
+bool canRetryInPlace(const ApproachLineOffset & offset, double staging_distance, double heading_limit);
+
 /**
  * 도킹 한 번 동안의 태그 탐색 상태. 도킹 액션 스레드에서만 읽고 쓴다
  */

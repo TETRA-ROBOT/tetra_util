@@ -80,4 +80,13 @@ LostTagAction decideLostTag(
   return LostTagAction::kFail;
 }
 
+bool canRetryInPlace(const ApproachLineOffset & offset, double staging_distance, double heading_limit)
+{
+  // 2 cm 는 staging 도착 허용치 안에서 조금 가까이 선 경우
+  return offset.front >= staging_distance - 0.02 &&
+         offset.front <= staging_distance + kRetryInPlaceBeyondStaging &&
+         std::abs(offset.lateral) <= kRetryInPlaceLateral &&
+         std::abs(offset.heading) <= heading_limit;
+}
+
 }  // namespace tetra_docking

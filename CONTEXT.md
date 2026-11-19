@@ -41,6 +41,8 @@
    (2026-11-18 부터 M·MH·EDU·SM 모두 켬, 값은 모델 navigation_*.yaml). 접근 중 blind 거리보다 멀리서 놓치면
    lost_tag_reacquire_distance 안에서는 마지막 검출 도크 자세(odom) 쪽으로 계속 몰아 다시 찾고, lost_tag_reacquire_time 안에
    다시 안 보이면 멈춘다 (decideLostTag, src/refined_pose.cpp). 그래도 실패하면 docking_server max_retries(1)로 staging 부터 한 번 더
+     (재시도 때 로봇이 staging 보다 0.15 m 안쪽으로 조금 멀리 서 있으면 Jazzy 전진 복귀가 반 바퀴를 돌아 30 초를 넘기므로
+     그 자리에서 다시 접근한다: canRetryInPlace, src/tag_staging.cpp)
      매 주기의 순서(가운데 맞추기 → 멈춰서 확인 → 못 보면 탐색 → 정밀 접근)는 src/refined_pose.cpp refineFromTagDetection 에 있다.
      탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 확인 없이 바로 접근한다 (TagSearchState::needsConfirmation, 테스트로 고정)
      후진 도킹(M, staging_yaw_offset pi): bumper_mask 8(뒤)·undock_bumper_mask 1(앞), tag staging 의 축 판정·태그 시야 계산도 후진을 따른다

@@ -246,3 +246,25 @@ TEST(DecideLostTag, KeepsTheOldBehaviourWhenReacquireIsOff)
   EXPECT_EQ(decideLostTag(0.53, 0.5, 0.25, 8.0, 0.0, 4.0), LostTagAction::kFail);
   EXPECT_EQ(decideLostTag(0.20, 9.0, 0.25, 8.0, 1.0, 4.0), LostTagAction::kFail);
 }
+
+// 재시도 제자리 접근 (canRetryInPlace). M 실기 2026-11-19: staging 0.7 m 보다 0.1 m 멀리 서 있다가 첫 접근이 실패해,
+// staging 이 로봇 바로 뒤에 잡히고 전진 복귀가 30 초 안에 끝나지 않았다
+TEST(CanRetryInPlace, RetriesFromJustBeyondStaging)
+{
+  tetra_docking::ApproachLineOffset offset{0.80, 0.0, 0.2};
+  EXPECT_TRUE(tetra_docking::canRetryInPlace(offset, 0.70, kAngle));
+}
+
+TEST(CanRetryInPlace, BacksOffWhenCloserThanStaging)
+{
+  // 접근 도중 태그를 놓친 경우: staging 이 앞이라 물러나 넓게 다시 본다
+  tetra_docking::ApproachLineOffset offset{0.50, 0.0, 0.0};
+  EXPECT_FALSE(tetra_docking::canRetryInPlace(offset, 0.70, kAngle));
+}
+
+TEST(CanRetryInPlace, RejectsFarOffAxisOrTurnedAway)
+{
+  EXPECT_FALSE(tetra_docking::canRetryInPlace({0.95, 0.0, 0.0}, 0.70, kAngle));
+  EXPECT_FALSE(tetra_docking::canRetryInPlace({0.75, 0.15, 0.0}, 0.70, kAngle));
+  EXPECT_FALSE(tetra_docking::canRetryInPlace({0.75, 0.0, -0.5}, 0.70, kAngle));
+}

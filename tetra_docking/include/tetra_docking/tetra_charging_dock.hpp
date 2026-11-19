@@ -77,6 +77,10 @@ protected:
   bool robotOnApproachLine(
     const DockSample & dock, const std::string & frame, double staging_distance,
     geometry_msgs::msg::PoseStamped & robot_pose);
+  bool isRetryingApproach();
+  // 마지막 getRefinedPose 시각. 도킹 서버는 접근이 실패하면 곧바로 getStagingPose 로 staging 에 되돌아가므로
+  // 이게 방금이면 그 호출은 재시도다
+  rclcpp::Time last_refine_time_{0, 0, RCL_ROS_TIME};
 
   // 범퍼 정지 (bumper_guard.cpp)
   void configureBumperGuard(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);

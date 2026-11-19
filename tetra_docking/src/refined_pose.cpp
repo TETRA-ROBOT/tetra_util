@@ -30,6 +30,7 @@ void TetraChargingDock::updateDetectionFromTagTf(const std::string & id)
 
 bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, std::string id)
 {
+  last_refine_time_ = node_->now();
   stopIfBumperPressed();
   if (tag_tf_as_detection_) {
     return refineFromTagDetection(pose, id);
