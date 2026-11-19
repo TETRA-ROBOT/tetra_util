@@ -79,7 +79,8 @@ geometry_msgs::msg::PoseStamped TetraChargingDock::getStagingPose(
   // 새 도킹: 지난 도킹의 탐색 상태·고정 yaw 를 쓰지 않는다
   resetTagSearch();
   locked_yaw_valid_ = false;
-  if (!tag_staging_) {
+  // 라이다 모드는 등록된 도크 자세 + staging_x_offset 에서 시작한다. 홈은 1 m 넘으면 잘 안 보여 태그 staging 처럼 멀리서 축을 잡지 못한다
+  if (!tag_staging_ || lidar_mode_) {
     return SimpleChargingDock::getStagingPose(pose, frame);
   }
   const std::string & staging_frame = tag_staging_frame_.empty() ? frame : tag_staging_frame_;

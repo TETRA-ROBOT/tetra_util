@@ -59,6 +59,7 @@ add_library(tetra_docking_plugins SHARED
   src/tag_search_plan.cpp
   src/refined_pose.cpp
   src/tag_dock_estimate.cpp
+  src/lidar_detection.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})
@@ -98,6 +99,8 @@ if(BUILD_TESTING)
   ament_target_dependencies(test_tag_search_plan angles)
   ament_add_gtest(test_dock_geometry test/test_dock_geometry.cpp src/tag_view.cpp)
   ament_target_dependencies(test_dock_geometry angles tf2)
+  # 라이다 도킹 마커 모드의 순수 계산 (헤더만)
+  ament_add_gtest(test_lidar_marker test/test_lidar_marker.cpp)
 endif()
 
 ament_export_include_directories(include)

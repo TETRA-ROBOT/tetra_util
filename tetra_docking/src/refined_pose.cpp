@@ -32,6 +32,10 @@ bool TetraChargingDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, s
 {
   last_refine_time_ = node_->now();
   stopIfBumperPressed();
+  // 관제 옵션 dock_detection 이 lidar 이면 태그 대신 스테이션의 V 자 홈 검출을 쓴다 (lidar_detection.cpp)
+  if (lidar_mode_) {
+    return refineFromLidarDetection(pose, id);
+  }
   if (tag_tf_as_detection_) {
     return refineFromTagDetection(pose, id);
   }

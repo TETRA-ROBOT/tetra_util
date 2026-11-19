@@ -46,6 +46,13 @@
      매 주기의 순서(가운데 맞추기 → 멈춰서 확인 → 못 보면 탐색 → 정밀 접근)는 src/refined_pose.cpp refineFromTagDetection 에 있다.
      탐색도 yaw 고정도 끈 모델(EDU, MH, SM)은 확인 없이 바로 접근한다 (TagSearchState::needsConfirmation, 테스트로 고정)
      후진 도킹(M, staging_yaw_offset pi): bumper_mask 8(뒤)·undock_bumper_mask 1(앞), tag staging 의 축 판정·태그 시야 계산도 후진을 따른다
+     detection_source 가 lidar 면(EDU, 관제 옵션 dock_detection 을 목표 직전에 넣음) 태그 대신 스테이션의 V 자 홈 검출(lidar_detection_topic,
+     tetra_config params/vdock_edu.yaml 의 line_docking_detector)을 쓴다 (src/lidar_detection.cpp). 검출 자세는 태그와 같은 자리·축이라
+     external_detection_* 를 같이 쓰고, 영점·blind approach 는 태그와 같다. 태그 staging·탐색·확인은 건너뛰고 등록된 도크 자세에서 시작한다.
+     마지막 구간 heading 우선은 라이다 전용 거리(lidar_heading_priority_near/far)가 있으면 그것을 쓴다: 홈이 접점 가까이까지 보여
+     태그 값(0.30 m 부터 횡 오차 고정)이면 남는 횡 오차 1~2.5 cm 로 충전 단자 가장자리에 붙었다 (실기 2026-11-19).
+     도크에 붙은 상태에서는 홈을 못 볼 수 있어, 언도킹 판단은 마지막 마커를 odom 에 기억한 값(undock_lidar_distance)으로 한다.
+     Nav2 기본 검출 토픽(detected_dock_pose)은 쓰지 않는다: SimpleChargingDock 이 그 토픽을 받으면 태그 모드 검출을 덮어쓴다
               │
               ▼
   [ 3단계: 충전 패드 접촉 및 충전 전류 감지 ] (tetra_power_driver)

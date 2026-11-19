@@ -116,6 +116,7 @@ void TetraChargingDock::configure(
   configureDockOffset(node, name);
   configureYawLock(node, name);
   configureTagSearch(node, name);
+  configureLidarDetection(node, name);
 
   RCLCPP_INFO(
     node_->get_logger(),
@@ -177,6 +178,10 @@ bool TetraChargingDock::isDocked()
     return true;
   }
   // 언도킹 전용 인스턴스는 도킹 자세를 모르므로 (매 언도킹마다 로봇 위치가 도크 자세) 태그 거리로만 본다
+  if (lidar_mode_ && undock_lidar_distance_ > 0.0) {
+    // 라이다는 도크 바로 앞에서 홈을 못 보므로, 지금 보이는지가 아니라 odom 에 기억한 마커 위치로 판단한다
+    return isLidarMarkerCloseAhead();
+  }
   if (undock_tag_distance_ > 0.0) {
     return isTagCloseAhead();
   }

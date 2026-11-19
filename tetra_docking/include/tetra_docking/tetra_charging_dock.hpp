@@ -57,6 +57,25 @@ protected:
   bool getBlindApproachPose(geometry_msgs::msg::PoseStamped & pose);
   bool isTagCloseAhead();
 
+  // 라이다 도킹 마커(스테이션의 V 자 홈) 모드 (src/lidar_detection.cpp, detection_source: lidar)
+  void configureLidarDetection(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);
+  rcl_interfaces::msg::SetParametersResult onDetectionSourceParameter(const std::vector<rclcpp::Parameter> & params);
+  void lidarDetectionCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+  bool refineFromLidarDetection(geometry_msgs::msg::PoseStamped & pose, const std::string & id);
+  bool isLidarMarkerCloseAhead();
+  std::atomic<bool> lidar_mode_{false};
+  std::string lidar_param_name_;
+  std::string lidar_detection_topic_;
+  std::string lidar_marker_frame_{"odom"};
+  double undock_lidar_distance_{0.0};
+  double lidar_marker_memory_{600.0};
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr lidar_detection_sub_;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr lidar_param_handle_;
+  std::mutex lidar_mutex_;
+  geometry_msgs::msg::PoseStamped latest_lidar_detection_;
+  geometry_msgs::msg::PoseStamped lidar_marker_in_fixed_;
+  rclcpp::Time lidar_marker_time_{0, 0, RCL_ROS_TIME};
+
   // 태그 정렬 staging (tag_staging.cpp), 태그 검출로 도크 자세 추정 (tag_dock_estimate.cpp)
   struct TagDockEstimate
   {
@@ -196,6 +215,9 @@ protected:
   // 마지막 구간 heading 우선 파라미터
   double heading_priority_near_{0.0};
   double heading_priority_far_{0.0};
+  // 라이다 모드 전용 값. 음수면 위 태그 값을 그대로 쓴다
+  double lidar_heading_priority_near_{-1.0};
+  double lidar_heading_priority_far_{-1.0};
 };
 
 }  // namespace tetra_docking

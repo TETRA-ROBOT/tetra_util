@@ -23,11 +23,23 @@ void TetraChargingDock::configureApproachShaping(
     node, name + ".heading_priority_far", rclcpp::ParameterValue(0.0));
   node->get_parameter(name + ".heading_priority_near", heading_priority_near_);
   node->get_parameter(name + ".heading_priority_far", heading_priority_far_);
+  // 라이다 모드(V 자 홈)는 접점 약 5 cm 앞까지 홈이 보인다. 태그 값(0.30 m 부터 횡 오차 고정)을 그대로 쓰면
+  // 그 지점의 횡 오차가 끝까지 남아, 실기 EDU (2026-11-19 녹화 edu_vdock_1119_dock) 0.30 m 앞 -3 cm 가 접점에서 1.3 cm,
+  // 구간 안 방향 흔들림으로 0 -> 1.6 cm 로 남아 접점 가장자리에 붙었다. 그래서 라이다는 더 가까이까지 횡 오차를 줄인다
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".lidar_heading_priority_near", rclcpp::ParameterValue(-1.0));
+  nav2_util::declare_parameter_if_not_declared(
+    node, name + ".lidar_heading_priority_far", rclcpp::ParameterValue(-1.0));
+  node->get_parameter(name + ".lidar_heading_priority_near", lidar_heading_priority_near_);
+  node->get_parameter(name + ".lidar_heading_priority_far", lidar_heading_priority_far_);
 }
 
 void TetraChargingDock::shapeFinalApproach(geometry_msgs::msg::PoseStamped & pose)
 {
-  if (heading_priority_far_ <= heading_priority_near_) {
+  const bool lidar_values = lidar_mode_ && lidar_heading_priority_far_ >= 0.0 && lidar_heading_priority_near_ >= 0.0;
+  const double near = lidar_values ? lidar_heading_priority_near_ : heading_priority_near_;
+  const double far = lidar_values ? lidar_heading_priority_far_ : heading_priority_far_;
+  if (far <= near) {
     return;
   }
   geometry_msgs::msg::TransformStamped robot;
@@ -43,8 +55,7 @@ void TetraChargingDock::shapeFinalApproach(geometry_msgs::msg::PoseStamped & pos
   // 도크 프레임: 로봇이 도크 앞이면 remaining > 0, lateral 은 도크 축에서 왼쪽 +
   const double remaining = -(std::cos(yaw) * dx + std::sin(yaw) * dy);
   const double lateral = -std::sin(yaw) * dx + std::cos(yaw) * dy;
-  const double weight = std::clamp(
-    (heading_priority_far_ - remaining) / (heading_priority_far_ - heading_priority_near_), 0.0, 1.0);
+  const double weight = std::clamp((far - remaining) / (far - near), 0.0, 1.0);
   if (weight <= 0.0) {
     return;
   }
