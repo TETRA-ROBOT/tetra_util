@@ -210,6 +210,8 @@ protected:
   std::atomic<double> dock_offset_yaw_{0.0};
   // 도착 판정을 도크 축 깊이만으로 한다 (좌우 잔여 오차가 docking_threshold 보다 커도 멈추게)
   bool docked_by_depth_{false};
+  // charge_requires_contact 일 때 깊이 도착 판정을 도크 자세보다 이만큼 깊게 둔다 (m, 0 이면 끔)
+  double contact_overtravel_{0.0};
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr offset_param_handle_;
 
   // 마지막 구간 heading 우선 파라미터

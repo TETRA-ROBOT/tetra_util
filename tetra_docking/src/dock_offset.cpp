@@ -4,9 +4,11 @@
 // <plugin>.dock_offset_x / _y / _yaw 파라미터로 넣으므로, Nav2 를 다시 띄우지 않고 바로 다음 도킹부터 반영된다.
 //
 // 좌표는 도킹을 마친 로봇 기준이다: x + 더 깊게(충전기 쪽), y + 로봇 왼쪽, yaw + 반시계(로봇 중심 기준 회전).
+#include <algorithm>
 #include <cmath>
 
 #include "tetra_docking/tetra_charging_dock.hpp"
+#include "tetra_docking/dock_geometry.hpp"
 #include "nav2_util/node_utils.hpp"
 
 namespace tetra_docking
@@ -19,6 +21,11 @@ constexpr double kMaxOffsetMeters = 0.10;
 constexpr double kMaxOffsetYawRad = 10.0 * M_PI / 180.0;
 // 깊이 도착 판정을 쓰는 범위 (도크 자세에서 좌우·지나친 거리)
 constexpr double kDepthCheckWindow = 0.10;
+// 범퍼·충전기 몸체를 넘어 밀지 않도록 둔 상한
+constexpr double kMaxContactOvertravel = 0.05;
+// 마지막 getRefinedPose 가 이보다 최근이면 접근 중으로 본다. 도킹 서버 controller_frequency 50 Hz 면 20 ms 마다 불리므로
+// 부하로 몇 주기 늦어도 접근 중이고, 목표 시작 때의 확인은 지난 접근(수 초 이상 전)이라 예전 판정을 쓴다
+constexpr double kApproachWindow = 0.25;
 }  // namespace
 
 void TetraChargingDock::configureDockOffset(
@@ -37,6 +44,14 @@ void TetraChargingDock::configureDockOffset(
   // 켜면 도크 축 방향 깊이가 도크 자세 - docking_threshold 에 닿을 때 도착으로 본다. 충전 접점은 좌우 여유가 있다
   nav2_util::declare_parameter_if_not_declared(node, name + ".docked_by_depth", rclcpp::ParameterValue(false));
   docked_by_depth_ = node->get_parameter(name + ".docked_by_depth").as_bool();
+  // 접점을 요구하는 충전 도킹(charge_requires_contact)에서 깊이 도착 판정을 도크 자세보다 이만큼 깊게 둔다.
+  // 도착 판정 뒤 도킹 서버는 waitForCharge 동안 속도를 내지 않아, 접점은 휠 드라이버 cmd_vel_timeout(0.5 s) 동안
+  // 마지막 명령(약 0.04 m/s, 약 2 cm)으로 밀려 들어갈 때만 붙었다 (실기 MH 2026-11-18 10:51, 16:39, 18:19: 도착 판정
+  // 0.5 초 뒤 휠 정지와 함께 충전). 도킹 속도를 낮추면(0.05 m/s -> 접근 0.02 m/s) 1 cm 만 밀려 접점 앞에 멈춘다.
+  // 접점을 못 만나면 앞 범퍼 bumper_grace 뒤 멈추는 것은 그대로다
+  nav2_util::declare_parameter_if_not_declared(node, name + ".contact_overtravel", rclcpp::ParameterValue(0.0));
+  contact_overtravel_ = std::clamp(
+    node->get_parameter(name + ".contact_overtravel").as_double(), 0.0, kMaxContactOvertravel);
 
   // 도킹 서버와 모든 플러그인이 한 노드를 쓰므로, 이 인스턴스의 영점 파라미터만 보고 나머지는 그대로 통과시킨다
   offset_param_handle_ = node->add_on_set_parameters_callback(
@@ -120,7 +135,12 @@ bool TetraChargingDock::isDockDepthReached()
     const double depth = std::cos(dock_yaw) * dx + std::sin(dock_yaw) * dy;
     const double lateral = -std::sin(dock_yaw) * dx + std::cos(dock_yaw) * dy;
     // 깊이만 보면 반평면이라, 지난 도킹의 dock_pose_ 가 남아 있을 때 다른 곳에서도 "이미 도킹됨"이 된다. 도크 근처로 제한한다
-    return depth >= -docking_threshold_ && depth <= kDepthCheckWindow && std::abs(lateral) <= kDepthCheckWindow;
+    // contact_overtravel 은 접근 중에만 더한다 (activeContactOvertravel 설명: 충전기 위 로봇의 시작 확인은 예전 판정)
+    const double since_refine = last_refine_time_.nanoseconds() == 0 ?
+      -1.0 : (node_->now() - last_refine_time_).seconds();
+    const double overtravel = activeContactOvertravel(
+      charge_requires_contact_, contact_overtravel_, since_refine, kApproachWindow);
+    return dockDepthReached(depth, lateral, docking_threshold_, overtravel, kDepthCheckWindow);
   } catch (const tf2::TransformException & ex) {
     RCLCPP_WARN(node_->get_logger(), "Dock depth check failed: %s", ex.what());
     return false;

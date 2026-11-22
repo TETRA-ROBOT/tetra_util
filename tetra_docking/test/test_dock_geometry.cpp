@@ -9,7 +9,9 @@
 
 using tetra_docking::DockSample;
 using tetra_docking::PlanarOffset;
+using tetra_docking::activeContactOvertravel;
 using tetra_docking::averageDockSamples;
+using tetra_docking::dockDepthReached;
 using tetra_docking::dockPositionFromTag;
 using tetra_docking::rotateDockOffset;
 using tetra_docking::tagPositionFromDock;
@@ -118,4 +120,45 @@ TEST(AverageDockSamples, RejectsSamplesThatSpreadTooMuch)
   EXPECT_FALSE(averageDockSamples({{0.0, 0.0, 0.0}, {0.3, 0.0, 0.0}}, 0.08, 0.12, mean));
   EXPECT_FALSE(averageDockSamples({{0.0, 0.0, 0.0}, {0.0, 0.0, 0.5}}, 0.08, 0.12, mean));
   EXPECT_FALSE(averageDockSamples({}, 0.08, 0.12, mean));
+}
+
+// MH: docking_threshold 0.005, kDepthCheckWindow 0.10
+TEST(DockDepthReached, WithoutOvertravelStopsJustBeforeTheDockPose)
+{
+  EXPECT_FALSE(dockDepthReached(-0.006, 0.0, 0.005, 0.0, 0.10));
+  EXPECT_TRUE(dockDepthReached(-0.005, 0.0, 0.005, 0.0, 0.10));
+  EXPECT_TRUE(dockDepthReached(0.02, 0.03, 0.005, 0.0, 0.10));
+}
+
+TEST(DockDepthReached, OvertravelKeepsDrivingPastTheDockPose)
+{
+  // contact_overtravel 0.015: 도크 자세 1 cm 안쪽까지는 아직 도착이 아니다
+  EXPECT_FALSE(dockDepthReached(0.0, 0.0, 0.005, 0.015, 0.10));
+  EXPECT_FALSE(dockDepthReached(0.009, 0.0, 0.005, 0.015, 0.10));
+  EXPECT_TRUE(dockDepthReached(0.010, 0.0, 0.005, 0.015, 0.10));
+}
+
+TEST(DockDepthReached, OnlyNearTheDock)
+{
+  EXPECT_FALSE(dockDepthReached(0.2, 0.0, 0.005, 0.0, 0.10));
+  EXPECT_FALSE(dockDepthReached(0.0, 0.15, 0.005, 0.0, 0.10));
+}
+
+// contact_overtravel 은 접근 중(getRefinedPose 가 0.25 초 안)일 때만 쓴다
+TEST(ActiveContactOvertravel, OnlyWhileApproaching)
+{
+  EXPECT_DOUBLE_EQ(activeContactOvertravel(true, 0.015, 0.02, 0.25), 0.015);
+  EXPECT_DOUBLE_EQ(activeContactOvertravel(true, 0.015, 5.0, 0.25), 0.0);
+  EXPECT_DOUBLE_EQ(activeContactOvertravel(true, 0.015, -1.0, 0.25), 0.0);
+  EXPECT_DOUBLE_EQ(activeContactOvertravel(false, 0.015, 0.02, 0.25), 0.0);
+}
+
+// 충전기 위(MH 실측 도크 자세 + 7 mm)에 서 있는 로봇: 접점 신호가 잠깐 끊겨도 도킹·언도킹 시작 확인에서는 도킹됨이다
+TEST(ActiveContactOvertravel, ParkedRobotStaysDockedWhenContactDrops)
+{
+  const double at_start = activeContactOvertravel(true, 0.015, 120.0, 0.25);
+  EXPECT_TRUE(dockDepthReached(0.007, 0.0, 0.005, at_start, 0.10));
+  // 접근 중이면 같은 깊이는 아직 도착이 아니다 (접점까지 계속 간다)
+  const double approaching = activeContactOvertravel(true, 0.015, 0.02, 0.25);
+  EXPECT_FALSE(dockDepthReached(0.007, 0.0, 0.005, approaching, 0.10));
 }
