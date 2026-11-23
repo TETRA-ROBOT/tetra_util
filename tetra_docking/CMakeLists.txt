@@ -61,6 +61,8 @@ add_library(tetra_docking_plugins SHARED
   src/tag_dock_estimate.cpp
   src/lidar_detection.cpp
   src/contact_stop.cpp
+  src/lift_pocket.cpp
+  src/pocket_detection.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})
@@ -102,6 +104,9 @@ if(BUILD_TESTING)
   ament_target_dependencies(test_dock_geometry angles tf2)
   # 라이다 도킹 마커 모드의 순수 계산 (헤더만)
   ament_add_gtest(test_lidar_marker test/test_lidar_marker.cpp)
+  # 리프트 포트(ㄷ 자) 라이다 검출·진입 여유 판정
+  ament_add_gtest(test_pocket_detection test/test_pocket_detection.cpp src/pocket_detection.cpp)
+  ament_target_dependencies(test_pocket_detection angles)
 endif()
 
 ament_export_include_directories(include)

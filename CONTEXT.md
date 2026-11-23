@@ -61,6 +61,17 @@
   [ 3단계: 충전 패드 접촉 및 충전 전류 감지 ] (tetra_power_driver)
 ```
 
+## 리프트 포트(ㄷ 자) 라이다 도킹 (TetraLiftDock, H)
+
+`detection_source: lidar` + `pocket_scan_topic` 이면 태그 대신 스캔으로 포트 두 다리 안쪽 면을 직선으로 맞춰 입구·축을 구하고
+(`src/pocket_detection.cpp`, 순수 계산·`test/test_pocket_detection.cpp`), 입구에서 `pocket_insert_depth` 안쪽을 도크 자세로 낸다 (`src/lift_pocket.cpp`).
+- 처음 사전 자세는 지도에 등록한 LOAD/UNLOAD 위치(짐 뜨는 자리), 이후는 지난 검출(odom 에 평활). 입구를 넘은 뒤 다리가 가려지면 기억한 값으로 들어간다.
+- 외곽 꼭짓점이 입구를 넘을 때 다리 안쪽 면에서 `pocket_entry_margin` 안이면, 또는 스캔 점이 외곽에서 `pocket_min_side/front_clearance` 안이면 0 속도 + FailedToControl.
+- 도착은 포트 축 깊이로 판정하고 바로 0 속도를 낸다. 그 뒤 `lift_action_mode`(H 2 = 최대) CN 명령.
+- 다리 사이에서는 도킹 서버 costmap 충돌 검사가 다리를 충돌로 보므로 H `dock_collision_threshold` 를 insert_depth + footprint 앞 + 0.1 로 넓혔다 (Jazzy 는 실행 중 못 바꿈).
+- 빠져나올 때는 관제가 같은 도크 종류로 UndockRobot 을 보내 staging_x_offset 만큼 곧게 후진한다 (TetraSingleManagement `lift-port-departure.ts`).
+- 포트 치수(`pocket_inner_width`·`pocket_leg_length`·`pocket_insert_depth`)는 현장 실측값을 `tetra_config` navigation_h.yaml 에 넣는다.
+
 ## tetra_docking 소스와 테스트
 
 - 계산만 하는 코드는 ROS 없이 테스트한다: `src/tag_search_plan.cpp`(탐색 단계·가운데 맞추기·탐색 상태),

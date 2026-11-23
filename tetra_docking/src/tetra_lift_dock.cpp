@@ -48,6 +48,8 @@ void TetraLiftDock::configure(
 
   lift_client_ = node->create_client<interfaces::srv::ConveyorAutoMovement>("conveyor_auto_move_cmd");
 
+  configurePocket(node, name);
+
   RCLCPP_INFO(
     node_->get_logger(),
     "Configured TetraLiftDock plugin: family=%s, lift CN code=%d",
@@ -69,6 +71,9 @@ void TetraLiftDock::apriltagCallback(const apriltag_msgs::msg::AprilTagDetection
 
 bool TetraLiftDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, std::string id)
 {
+  if (pocket_mode_) {
+    return refineFromPocket(pose);
+  }
   std::string target_frame = marker_family_ + id;
   if (id.empty() && latest_detected_tag_id_ >= 0) {
     target_frame = marker_family_ + std::to_string(latest_detected_tag_id_);
@@ -93,7 +98,7 @@ bool TetraLiftDock::getRefinedPose(geometry_msgs::msg::PoseStamped & pose, std::
 
 bool TetraLiftDock::isDocked()
 {
-  bool docked = SimpleNonChargingDock::isDocked();
+  bool docked = pocket_mode_ ? isDockedInPocket() : SimpleNonChargingDock::isDocked();
   // 접근 중(아직 도킹 전)에 플래그를 내린다. 예전에는 한 번 올린 뒤 내리는 곳이 없어
   // docking_server 가 살아 있는 동안 두 번째 도킹부터 리프트가 움직이지 않았다
   if (!docked) {
