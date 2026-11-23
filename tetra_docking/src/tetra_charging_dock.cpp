@@ -117,6 +117,7 @@ void TetraChargingDock::configure(
   configureYawLock(node, name);
   configureTagSearch(node, name);
   configureLidarDetection(node, name);
+  configureContactStop(node);
 
   RCLCPP_INFO(
     node_->get_logger(),
@@ -131,6 +132,7 @@ void TetraChargingDock::configure(
 void TetraChargingDock::dockingStatusCallback(const std_msgs::msg::Int32::SharedPtr msg)
 {
   current_docking_status_ = msg->data;
+  stopOnContact();
 }
 
 void TetraChargingDock::apriltagCallback(const apriltag_msgs::msg::AprilTagDetectionArray::SharedPtr msg)
@@ -175,6 +177,7 @@ bool TetraChargingDock::isTagCloseAhead()
 bool TetraChargingDock::isDocked()
 {
   if (current_docking_status_ >= contact_status_val_) {
+    stopOnContact();
     return true;
   }
   // 언도킹 전용 인스턴스는 도킹 자세를 모르므로 (매 언도킹마다 로봇 위치가 도크 자세) 태그 거리로만 본다
@@ -194,6 +197,7 @@ bool TetraChargingDock::isDocked()
 bool TetraChargingDock::isCharging()
 {
   if (current_docking_status_ >= contact_status_val_) {
+    stopOnContact();
     return true;
   }
   if (charge_requires_contact_) {

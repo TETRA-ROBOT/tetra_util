@@ -100,6 +100,15 @@ protected:
   // 마지막 getRefinedPose 시각. 도킹 서버는 접근이 실패하면 곧바로 getStagingPose 로 staging 에 되돌아가므로
   // 이게 방금이면 그 호출은 재시도다
   rclcpp::Time last_refine_time_{0, 0, RCL_ROS_TIME};
+  // 같은 시각을 접점 콜백 스레드에서도 읽으므로 원자 값으로 따로 둔다 (contact_stop.cpp)
+  std::atomic<int64_t> last_refine_ns_{0};
+
+  // 접점 정지 (contact_stop.cpp)
+  void configureContactStop(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node);
+  bool isApproachCoasting() const;
+  void stopOnContact();
+  rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr contact_stop_pub_;
+  std::atomic<bool> contact_stop_logged_{false};
 
   // 범퍼 정지 (bumper_guard.cpp)
   void configureBumperGuard(const rclcpp_lifecycle::LifecycleNode::SharedPtr & node, const std::string & name);

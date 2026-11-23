@@ -60,6 +60,7 @@ add_library(tetra_docking_plugins SHARED
   src/refined_pose.cpp
   src/tag_dock_estimate.cpp
   src/lidar_detection.cpp
+  src/contact_stop.cpp
 )
 
 ament_target_dependencies(tetra_docking_plugins ${dependencies})

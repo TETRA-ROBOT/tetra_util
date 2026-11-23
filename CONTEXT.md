@@ -28,6 +28,8 @@
   [ 2단계: AR 마커/라인 정밀 정렬 ] (tetra_docking 플러그인)
      heading_priority_near/far 가 켜져 있으면 도크 바로 앞에서는 도크와 나란히 곧게 들어간다 (src/approach_shaping.cpp)
      bumper_topic 이 켜져 있으면 접점 없이 앞 범퍼가 bumper_grace 넘게 눌릴 때 905 로 멈춘다 (src/bumper_guard.cpp)
+     접근 중(마지막 getRefinedPose 1 초 안) docking_status 가 contact_status_val 이상이 되면 바로 0 속도를 낸다 (src/contact_stop.cpp).
+     도킹 서버는 접점을 보면 루프를 빠져나갈 뿐 0 을 내지 않아, 휠 드라이버 cmd_vel_timeout(0.5 s) 동안 약 2 cm 를 더 밀어 스테이션이 밀렸다
      dock_offset_x/_y/_yaw (관제 관리자 설정 '도킹 영점', 도킹 직전에 API 가 넣음) 로 태그 기준 도크 자세를 로봇마다 옮긴다 (src/dock_offset.cpp)
      접근 속도는 플러그인이 아니라 docking_server 의 opennav_docking Controller(graceful)가 정한다. 관제가 도킹 목표 직전에 controller.v_linear_max /
      v_linear_min / slowdown_radius 를 관리자 설정 '도킹 속도'·'감속 시작 거리'로 넣어 도크 앞에서 남은 거리에 비례해 줄인다 (TetraSingleManagement dock-speed.ts).
