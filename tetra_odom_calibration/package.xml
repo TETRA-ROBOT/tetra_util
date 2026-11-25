@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Wheel odometry scale calibration (straight and in-place turns measured by scan matching) for the TETRA web admin page</description>
   <maintainer email="johny@hyulimatech.co.kr">johny</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>

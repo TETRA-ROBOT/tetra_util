@@ -15,7 +15,7 @@ setup(
     maintainer='johny',
     maintainer_email='johny@hyulimatech.co.kr',
     description='Re-localizes AMCL by matching the laser scan to the map when the pose is lost',
-    license='TODO: License declaration',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

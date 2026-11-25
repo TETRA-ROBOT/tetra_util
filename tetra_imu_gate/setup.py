@@ -15,7 +15,7 @@ setup(
     maintainer='johny',
     maintainer_email='johny@hyulimatech.co.kr',
     description='Holds back IMU messages from the EKF while the wheels report standstill',
-    license='TODO: License declaration',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

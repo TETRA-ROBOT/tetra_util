@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Checkerboard camera calibration driven from the TETRA web admin page (applies via set_camera_info)</description>
   <maintainer email="johny@hyulimatech.co.kr">johny</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>

@@ -15,7 +15,7 @@ setup(
     maintainer='johny',
     maintainer_email='johny@hyulimatech.co.kr',
     description='Checkerboard camera calibration driven from the TETRA web admin page',
-    license='TODO: License declaration',
+    license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

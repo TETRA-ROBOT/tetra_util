@@ -5,7 +5,7 @@
   <version>1.0.0</version>
   <description>Re-localizes AMCL by matching the laser scan to the map when the pose is lost</description>
   <maintainer email="johny@hyulimatech.co.kr">johny</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
   <depend>geometry_msgs</depend>
