@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 474" width="920" height="474" font-family="-apple-system,'Segoe UI','Noto Sans KR','Malgun Gothic',sans-serif" role="img" aria-label="충전 도킹 4단계">
+<title>충전 도킹 4단계</title>
+<style>
+.card{fill:#ffffff;stroke:#d0d7de}
+.ink{fill:#1f2328}.muted{fill:#59636e}.white{fill:#ffffff}
+.floor{fill:#f6f8fa}
+.wall{fill:#d0d7de}
+.station{fill:#263238}.red{fill:#E53935}.yellow{fill:#FBC02D}.teal{fill:#00897B}
+.path{stroke:#8c959f;stroke-width:2;stroke-dasharray:6 5;fill:none}
+.axis{stroke:#00897B;stroke-width:1.5;stroke-dasharray:3 4;fill:none}
+.blind{fill:#FBC02D;fill-opacity:.18}
+.stage{fill:none;stroke:#8c959f;stroke-width:1.5;stroke-dasharray:4 3}
+.cone{fill:#00897B;fill-opacity:.16;stroke:#00897B;stroke-opacity:.5}
+.chip{fill:#f6f8fa;stroke:#d0d7de}
+.chipon{fill:#00897B;fill-opacity:.14;stroke:#00897B;stroke-width:1.5}
+.body{fill:#263238}.bodyband{fill:none;stroke:#E53935;stroke-width:3}
+.wheel{fill:#59636e}
+.tagw{fill:#ffffff}
+@media (prefers-color-scheme: dark){
+ .card{fill:#161b22;stroke:#30363d}
+ .ink{fill:#e6edf3}.muted{fill:#9198a1}
+ .floor{fill:#0d1117}.wall{fill:#30363d}
+ .station{fill:#455a64}
+ .path{stroke:#6e7681}
+ .axis{stroke:#26a69a}
+ .chip{fill:#0d1117;stroke:#30363d}
+ .chipon{fill:#26a69a;fill-opacity:.22;stroke:#26a69a}
+ .body{fill:#546e7a}.wheel{fill:#9198a1}
+ .cone{fill:#26a69a;stroke:#26a69a}
+}
+@keyframes drive{
+ 0%{transform:translate(110px,318px) rotate(-4deg);opacity:0}
+ 2%{transform:translate(110px,318px) rotate(-4deg);opacity:1}
+ 4%{transform:translate(110px,318px) rotate(-4deg)}
+ 11%{transform:translate(260px,306px) rotate(-14deg)}
+ 18%{transform:translate(420px,240px) rotate(-22deg)}
+ 23%,25%{transform:translate(560px,196px) rotate(0deg)}
+ 29%{transform:translate(560px,196px) rotate(14deg)}
+ 34%{transform:translate(560px,196px) rotate(-14deg)}
+ 38%,45%{transform:translate(560px,196px) rotate(0deg)}
+ 55%{transform:translate(660px,196px) rotate(0deg)}
+ 63%{transform:translate(718px,196px) rotate(0deg)}
+ 70%{transform:translate(750px,196px) rotate(0deg)}
+ 75%,96%{transform:translate(766px,196px) rotate(0deg);opacity:1}
+ 99%,100%{transform:translate(766px,196px) rotate(0deg);opacity:0}
+}
+@keyframes cone{0%,24%{opacity:0}26%,66%{opacity:1}69%,100%{opacity:0}}
+@keyframes s1{0%,24.9%{opacity:1}25%,100%{opacity:0}}
+@keyframes s2{0%,24.9%{opacity:0}25%,44.9%{opacity:1}45%,100%{opacity:0}}
+@keyframes s3{0%,44.9%{opacity:0}45%,74.9%{opacity:1}75%,100%{opacity:0}}
+@keyframes s4{0%,74.9%{opacity:0}75%,98%{opacity:1}100%{opacity:0}}
+@keyframes check{0%,37%{opacity:0}39%,46%{opacity:1}48%,100%{opacity:0}}
+@keyframes bolt{0%,75%{opacity:0}77%,81%{opacity:1}84%{opacity:.35}87%{opacity:1}90%{opacity:.35}93%,97%{opacity:1}99%,100%{opacity:0}}
+.robot{animation:drive 10s infinite}
+.conea{animation:cone 10s infinite}
+.s1{animation:s1 10s infinite}.s2{opacity:0;animation:s2 10s infinite}
+.s3{opacity:0;animation:s3 10s infinite}.s4{opacity:0;animation:s4 10s infinite}
+.chk{opacity:0;animation:check 10s infinite}
+.bolt{opacity:0;animation:bolt 10s infinite}
+@media (prefers-reduced-motion: reduce){.anim{animation:none!important}.robot{transform:translate(560px,196px)}}
+</style>
+<rect class="card" x="1" y="1" width="918" height="472" rx="14"/>
+<text class="ink" x="24" y="36" font-size="18" font-weight="700">TetraChargingDock — 충전 도킹 4단계 (태그 모드)</text>
+<text class="muted" x="24" y="58" font-size="12.5">Nav2 docking_server 가 순서를 돌리고, 이 플러그인이 staging 자세·매 주기 도크 자세·도착/충전 판정을 답합니다.</text>
+<rect class="floor" x="24" y="76" width="872" height="250" rx="10"/>
+<rect class="wall" x="836" y="76" width="60" height="250"/>
+<text class="muted" x="40" y="98" font-size="11.5">그림은 전진 도킹. M 은 후면 카메라로 태그를 보며 뒤로 들어갑니다.</text>
+<path class="path" d="M110,318 C200,318 240,312 300,292 S470,214 560,196"/>
+<line class="axis" x1="560" y1="196" x2="798" y2="196"/>
+<rect class="blind" x="726" y="150" width="72" height="92"/>
+<text class="muted" x="762" y="262" font-size="11" text-anchor="middle">blind 0.25 m</text>
+<text class="muted" x="762" y="277" font-size="11" text-anchor="middle">마지막 검출 자세로</text>
+<circle class="stage" cx="560" cy="196" r="44"/>
+<text class="ink" x="560" y="136" font-size="12" font-weight="700" text-anchor="middle">staging 자세</text>
+<text class="muted" x="560" y="120" font-size="11" text-anchor="middle">태그 정면 축 위, 도크 앞 0.4~1.0 m</text>
+<text class="muted" x="110" y="296" font-size="11" text-anchor="middle">출발</text>
+<text class="muted" x="330" y="262" font-size="11">Nav2 주행</text>
+<g class="robot anim">
+<path class="cone conea anim" d="M30,0 L150,-46 L150,46 Z"/>
+<rect class="wheel" x="-18" y="-33" width="30" height="8" rx="3"/>
+<rect class="wheel" x="-18" y="25" width="30" height="8" rx="3"/>
+<rect class="body" x="-32" y="-28" width="64" height="56" rx="9"/>
+<rect class="bodyband" x="-30" y="-26" width="60" height="52" rx="8"/>
+<path class="white" d="M14,0 l-14,-9 v18 z"/>
+<circle class="yellow" cx="26" cy="0" r="4"/>
+</g>
+<rect class="wall" x="836" y="76" width="60" height="250"/>
+<text class="muted" x="866" y="316" font-size="11" text-anchor="middle">벽</text>
+<rect class="station" x="800" y="150" width="38" height="92" rx="4"/>
+<rect class="red" x="800" y="150" width="5" height="92"/>
+<rect class="yellow" x="795" y="176" width="6" height="10" rx="2"/><rect class="yellow" x="795" y="206" width="6" height="10" rx="2"/>
+<rect class="tagw" x="812" y="183" width="22" height="26" rx="2"/>
+<rect class="station" x="816" y="188" width="14" height="16"/>
+<rect class="tagw" x="819" y="191" width="5" height="5"/>
+<text class="muted" x="819" y="140" font-size="11" text-anchor="middle">충전 스테이션</text>
+<text class="muted" x="819" y="258" font-size="11" text-anchor="middle">AprilTag</text>
+<g class="chk anim"><circle class="teal" cx="560" cy="250" r="11"/><path d="M554,250 l4,4 l8,-8" stroke="#fff" stroke-width="2.5" fill="none"/><text class="ink" x="578" y="255" font-size="12" font-weight="700">멈춘 채 태그 확인</text></g>
+<g class="bolt anim"><path class="yellow" d="M770,104 l-12,22 h10 l-6,18 l18,-26 h-10 l8,-14 z" stroke="#263238" stroke-width="1"/><text class="ink" x="752" y="102" font-size="12" font-weight="700" text-anchor="end">접점 → 바로 0 속도</text></g>
+<rect class="chip" x="24" y="342" width="212" height="74" rx="9"/>
+<rect class="chipon s1 anim" x="24" y="342" width="212" height="74" rx="9"/>
+<text class="ink" x="36" y="364" font-size="13.5" font-weight="700">① staging 으로 이동</text>
+<text class="muted" x="36" y="384" font-size="11.5">Nav2 주행. 태그가 보이면</text>
+<text class="muted" x="36" y="400" font-size="11.5">검출 평균으로 축 위에 선다</text>
+<rect class="chip" x="244" y="342" width="212" height="74" rx="9"/>
+<rect class="chipon s2 anim" x="244" y="342" width="212" height="74" rx="9"/>
+<text class="ink" x="256" y="364" font-size="13.5" font-weight="700">② 태그 찾기·확인</text>
+<text class="muted" x="256" y="384" font-size="11.5">안 보이면 제자리에서 좌우로</text>
+<text class="muted" x="256" y="400" font-size="11.5">돌고, 멈춘 채로 확인한다</text>
+<rect class="chip" x="464" y="342" width="212" height="74" rx="9"/>
+<rect class="chipon s3 anim" x="464" y="342" width="212" height="74" rx="9"/>
+<text class="ink" x="476" y="364" font-size="13.5" font-weight="700">③ 정밀 접근</text>
+<text class="muted" x="476" y="384" font-size="11.5">매 주기 태그로 도크 자세 갱신,</text>
+<text class="muted" x="476" y="400" font-size="11.5">graceful 제어기가 감속</text>
+<rect class="chip" x="684" y="342" width="212" height="74" rx="9"/>
+<rect class="chipon s4 anim" x="684" y="342" width="212" height="74" rx="9"/>
+<text class="ink" x="696" y="364" font-size="13.5" font-weight="700">④ 접점·충전</text>
+<text class="muted" x="696" y="384" font-size="11.5">docking_status ≥ 2 면 바로 정지.</text>
+<text class="muted" x="696" y="400" font-size="11.5">범퍼만 눌리면 905 로 멈춤</text>
+<text class="muted" x="24" y="438" font-size="11.5">실패하면 docking_server 가 max_retries(M·H·EDU·MH·SM 설정은 1) 만큼 staging 부터 다시 합니다.</text>
+<text class="muted" x="24" y="456" font-size="11.5">이때 로봇이 staging 바로 뒤 0.15 m 안에 서 있으면 반 바퀴 돌지 않고 그 자리에서 다시 접근합니다 (canRetryInPlace).</text>
+</svg>
